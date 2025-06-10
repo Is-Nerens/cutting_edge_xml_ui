@@ -1,12 +1,12 @@
-#define _CRT_SECURE_NO_WARNINGS 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MAX_TREE_DEPTH 32
 
 #include <stdint.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include "performance.h"
-
+#include "vector.h"
 
 const char* keywords[] = {
     "id",
@@ -22,7 +22,11 @@ const char* keywords[] = {
 
 const uint8_t keyword_lengths[] = { 2, 3, 4, 6, 4, 6, 4, 4, 5 };
 
-enum Token
+
+
+// Enums ------------------------ //
+
+enum NU_Token
 {
     ID_PROPERTY,
     LAYOUT_DIRECTION_PROPERTY,
@@ -52,6 +56,12 @@ enum Tag
     NAT,
 };
 
+// Enums ------------------------ //
+
+
+
+// Structs ---------------------- //
+
 struct Node
 {
     enum Tag tag;
@@ -67,87 +77,46 @@ struct Node
     char layout_flags;
 };
 
-struct PTextRef
+struct Property_Text_Ref
 {
-    uint32_t token_index;
+    uint32_t NU_Token_index;
     uint32_t src_index;
     uint8_t char_count;
 };
 
-struct Vector
-{
-    uint32_t capacity;
-    uint32_t size;
-    void* data;
-    size_t element_size;
-};
-
-void Vector_Reserve(struct Vector* vector, size_t element_size, uint32_t capacity)
-{
-    vector->capacity = capacity;
-    vector->size = 0;
-    vector->element_size = element_size;
-    vector->data = malloc(capacity * element_size);
-}
-
-void Vector_Free(struct Vector* vector)
-{
-    free(vector->data);
-    vector->data = NULL;
-    vector->capacity = 0;
-    vector->size = 0;
-}
-
-void Vector_Grow(struct Vector* vector)
-{
-    vector->capacity = MAX(vector->capacity * 2, 2);
-    vector->data = realloc(vector->data, vector->capacity * vector->element_size);
-}
-
-void Vector_Push(struct Vector* vector, const void* element)
-{
-    if (vector->size == vector->capacity) {
-        Vector_Grow(vector);
-    }
-    void* destination = (char*)vector->data + vector->size * vector->element_size;
-    memcpy(destination, element, vector->element_size);
-    vector->size += 1;
-}
-
-void* Vector_Get(struct Vector* vector, uint32_t index)
-{
-    return (char*) vector->data + index * vector->element_size;
-}
-
-
-
-
-struct TextRef
+struct Text_Ref
 {
     uint32_t buffer_index;
     uint32_t char_count;
     uint32_t char_capacity;
 };
 
-struct ArenaFreeElement
+struct Arena_Free_Element
 {
     uint32_t index;
     uint32_t length;
 };
 
-struct TextArena
+struct Text_Arena
 {
     struct Vector free_list;
     struct Vector text_refs;
     struct Vector char_buffer;
 };
 
+struct UI_Tree
+{
+    struct Vector tree_stack[MAX_TREE_DEPTH];
+    struct Text_Arena text_arena;
+};
+
+// Structs ---------------------- //
 
 
 
+// Internal Functions ----------- //
 
-
-enum Token word_to_token(char word[], uint8_t word_char_count)
+enum NU_Token NU_Word_To_NU_Token(char word[], uint8_t word_char_count)
 {
     for (uint8_t i = 0; i < 9; i++) {
         size_t len = keyword_lengths[i];
@@ -158,14 +127,16 @@ enum Token word_to_token(char word[], uint8_t word_char_count)
     return UNDEFINED;
 }
 
-void tokenise(
-    char* src_buffer, 
-    uint32_t src_length, 
-    struct Vector* token_vector, 
-    struct Vector* ptext_ref_vector, 
-    struct TextArena* text_arena) 
+enum Tag NU_Token_To_Tag(enum NU_Token NU_Token)
 {
-    // Store current token word
+    int tag_candidate = NU_Token - 3;
+    if (tag_candidate < 0) return NAT;
+    return NU_Token - 3;
+}
+
+void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector, struct Text_Arena* text_arena) 
+{
+    // Store current NU_Token word
     uint8_t word_char_index = 0;
     char word[24];
 
@@ -176,6 +147,7 @@ void tokenise(
     // Context
     uint8_t ctx = 0; // 0 == globalspace, 1 == commentspace, 2 == tagspace, 3 == propertyspace
 
+    // Iterate over src file 
     uint32_t i = 0;
     while (i < src_length)
     {
@@ -210,7 +182,7 @@ void tokenise(
             // Reset global text character count
             if (text_char_count > 0)
             {
-                struct TextRef new_ref;
+                struct Text_Ref new_ref;
                 new_ref.char_count = text_char_count;
                 new_ref.char_capacity = text_char_count;
                 new_ref.buffer_index = text_arena_buffer_index;
@@ -218,8 +190,8 @@ void tokenise(
             }
             text_char_count = 0;
 
-            enum Token t = OPEN_END_TAG;
-            Vector_Push(token_vector, &t);
+            enum NU_Token t = OPEN_END_TAG;
+            Vector_Push(NU_Token_vector, &t);
             word_char_index = 0;
             ctx = 2;
             i+=2;
@@ -232,7 +204,7 @@ void tokenise(
             // Reset global text character count
             if (text_char_count > 0)
             {
-                struct TextRef new_ref;
+                struct Text_Ref new_ref;
                 new_ref.char_count = text_char_count;
                 new_ref.char_capacity = text_char_count;
                 new_ref.buffer_index = text_arena_buffer_index;
@@ -240,8 +212,8 @@ void tokenise(
             }
             text_char_count = 0;
 
-            enum Token t = OPEN_TAG;
-            Vector_Push(token_vector, &t);
+            enum NU_Token t = OPEN_TAG;
+            Vector_Push(NU_Token_vector, &t);
             word_char_index = 0;
             ctx = 2;
             i+=1;
@@ -252,11 +224,11 @@ void tokenise(
         if (ctx == 2 && i < src_length - 1 && c == '/' && src_buffer[i+1] == '>')
         {
             if (word_char_index > 0) {
-                enum Token t = word_to_token(word, word_char_index);
-                Vector_Push(token_vector, &t);
+                enum NU_Token t = NU_Word_To_NU_Token(word, word_char_index);
+                Vector_Push(NU_Token_vector, &t);
             }
-            enum Token t = CLOSE_END_TAG;
-            Vector_Push(token_vector, &t);
+            enum NU_Token t = CLOSE_END_TAG;
+            Vector_Push(NU_Token_vector, &t);
             word_char_index = 0;
             ctx = 0;
             i+=2;
@@ -267,11 +239,11 @@ void tokenise(
         if (ctx == 2 && c == '>')
         {
             if (word_char_index > 0) {
-                enum Token t = word_to_token(word, word_char_index);
-                Vector_Push(token_vector, &t);
+                enum NU_Token t = NU_Word_To_NU_Token(word, word_char_index);
+                Vector_Push(NU_Token_vector, &t);
             }
-            enum Token t = CLOSE_TAG;
-            Vector_Push(token_vector, &t);
+            enum NU_Token t = CLOSE_TAG;
+            Vector_Push(NU_Token_vector, &t);
             word_char_index = 0;
             ctx = 0;
             i+=1;
@@ -282,12 +254,12 @@ void tokenise(
         if (ctx == 2 && c == '=')
         {
             if (word_char_index > 0) {
-                enum Token t = word_to_token(word, word_char_index);
-                Vector_Push(token_vector, &t);
+                enum NU_Token t = NU_Word_To_NU_Token(word, word_char_index);
+                Vector_Push(NU_Token_vector, &t);
             }
             word_char_index = 0;
-            enum Token t = PROPERTY_ASSIGNMENT;
-            Vector_Push(token_vector, &t);
+            enum NU_Token t = PROPERTY_ASSIGNMENT;
+            Vector_Push(NU_Token_vector, &t);
             i+=1;
             continue;
         }
@@ -303,12 +275,12 @@ void tokenise(
         // Property value ends
         if (ctx == 3 && c == '"')
         {
-            enum Token t = PROPERTY_VALUE;
-            Vector_Push(token_vector, &t);
+            enum NU_Token t = PROPERTY_VALUE;
+            Vector_Push(NU_Token_vector, &t);
             if (word_char_index > 0)
             {
-                struct PTextRef ref;
-                ref.token_index = token_vector->size - 1;
+                struct Property_Text_Ref ref;
+                ref.NU_Token_index = NU_Token_vector->size - 1;
                 ref.src_index = i - word_char_index;
                 ref.char_count = word_char_index;
                 Vector_Push(ptext_ref_vector, &ref);
@@ -319,24 +291,26 @@ void tokenise(
             continue;
         }
 
+        // If split character
         if (c == ' ' || c == '\t' || c == '\n')
         {
             if (word_char_index > 0) {
-                enum Token t = word_to_token(word, word_char_index);
-                Vector_Push(token_vector, &t);
+                enum NU_Token t = NU_Word_To_NU_Token(word, word_char_index);
+                Vector_Push(NU_Token_vector, &t);
             }
             word_char_index = 0;
             i+=1;
             continue;
         }
 
+        // If tag space or property space
         if (ctx == 2 || ctx == 3)
         {
             word[word_char_index] = c;
             word_char_index+=1;
         }
 
-
+        // If global space and split character
         if (ctx == 0 && c != '\t' && c != '\n')
         {
             // text continues
@@ -359,21 +333,14 @@ void tokenise(
     }
 
     if (word_char_index > 0) {
-        enum Token t = word_to_token(word, word_char_index);
-        Vector_Push(token_vector, &t);
+        enum NU_Token t = NU_Word_To_NU_Token(word, word_char_index);
+        Vector_Push(NU_Token_vector, &t);
     }
 }
 
-enum Tag TokenToTag(enum Token token)
+int NU_Is_Token_Property(enum NU_Token NU_Token)
 {
-    int tag_candidate = token - 3;
-    if (tag_candidate < 0) return NAT;
-    return token - 3;
-}
-
-int isPropertyToken(enum Token token)
-{
-    return token < 3;
+    return NU_Token < 3;
 }
 
 int AssertRootGrammar(struct Vector* token_vector)
@@ -382,17 +349,17 @@ int AssertRootGrammar(struct Vector* token_vector)
     // ENFORCE RULE: SECOND TOKEN MUST BE TAG NAME
     // ENFORCE RULE: THIRD TOKEN MUST BE CLOSE_TAG | PROPERTY
     int root_open = token_vector->size > 2 && 
-        *((enum Token*) Vector_Get(token_vector, 0)) == OPEN_TAG &&
-        *((enum Token*) Vector_Get(token_vector, 1)) == WINDOW_TAG;
+        *((enum NU_Token*) Vector_Get(token_vector, 0)) == OPEN_TAG &&
+        *((enum NU_Token*) Vector_Get(token_vector, 1)) == WINDOW_TAG;
 
     if (token_vector->size > 2 &&
-        *((enum Token*) Vector_Get(token_vector, 0)) == OPEN_TAG &&
-        *((enum Token*) Vector_Get(token_vector, 1)) == WINDOW_TAG) 
+        *((enum NU_Token*) Vector_Get(token_vector, 0)) == OPEN_TAG &&
+        *((enum NU_Token*) Vector_Get(token_vector, 1)) == WINDOW_TAG) 
     {
         if (token_vector->size > 5 && 
-            *((enum Token*) Vector_Get(token_vector, token_vector->size-3)) == OPEN_END_TAG &&
-            *((enum Token*) Vector_Get(token_vector, token_vector->size-2)) == WINDOW_TAG && 
-            *((enum Token*) Vector_Get(token_vector, token_vector->size-1)) == CLOSE_TAG)
+            *((enum NU_Token*) Vector_Get(token_vector, token_vector->size-3)) == OPEN_END_TAG &&
+            *((enum NU_Token*) Vector_Get(token_vector, token_vector->size-2)) == WINDOW_TAG && 
+            *((enum NU_Token*) Vector_Get(token_vector, token_vector->size-1)) == CLOSE_TAG)
         {
             return 0; // Success
         }
@@ -412,10 +379,10 @@ int AssertRootGrammar(struct Vector* token_vector)
 int AssertNewTagGrammar(struct Vector* token_vector, int i)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG NAME 
-    if (i < token_vector->size - 2 && TokenToTag(*((enum Token*) Vector_Get(token_vector, i+1))) != NAT)
+    if (i < token_vector->size - 2 && NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(token_vector, i+1))) != NAT)
     {
-        enum Token third_token = *((enum Token*) Vector_Get(token_vector, i+2));
-        if (third_token == CLOSE_TAG || third_token == CLOSE_END_TAG || isPropertyToken(third_token)) return 0; // Success
+        enum NU_Token third_token = *((enum NU_Token*) Vector_Get(token_vector, i+2));
+        if (third_token == CLOSE_TAG || third_token == CLOSE_END_TAG || NU_Is_Token_Property(third_token)) return 0; // Success
     }
     return -1; // Failure
 }
@@ -425,44 +392,36 @@ int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum Tag open
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG AND MUST MATCH OPENING TAG
     // ENDORCE RULE: THIRD TOKEN MUST BE A TAG END
     if (i < token_vector->size - 2 && 
-        TokenToTag(*((enum Token*) Vector_Get(token_vector, i+1))) == openTag && 
-        *((enum Token*) Vector_Get(token_vector, i+2)) == CLOSE_TAG) return 0; // Success
+        NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(token_vector, i+1))) == openTag && 
+        *((enum NU_Token*) Vector_Get(token_vector, i+2)) == CLOSE_TAG) return 0; // Success
     else {
         printf("%s", "[Generate Tree] Error! Closing tag does not match.");
-        printf("%s %d %s %d", "close tag:", TokenToTag(*((enum Token*) Vector_Get(token_vector, i+1))), "open tag:", openTag);
+        printf("%s %d %s %d", "close tag:", NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(token_vector, i+1))), "open tag:", openTag);
     }
     return -1; // Failure
 }
 
-int generate_tree(char* src_buffer, uint32_t src_length, struct Vector* token_vector, struct Vector* ptext_ref_vector)
+int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_tree, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
 {
-    // Create the tree data structure -> reserve 64 layers, 100 nodes per layer = 384KB
-    const int max_stack_depth = 32;
-    struct Vector tree_stack[max_stack_depth];
-    Vector_Reserve(&tree_stack[0], sizeof(struct Node), 1); // 1 root element
-    for (int i=1; i<max_stack_depth; i++) {
-        Vector_Reserve(&tree_stack[i], sizeof(struct Node), 100);
-    }
-
     // Enforce root grammar
-    if (AssertRootGrammar(token_vector) != 0) {
+    if (AssertRootGrammar(NU_Token_vector) != 0) {
         return -1; // Failure 
     }
 
-    // Iterate over all tokens
+    // Iterate over all NU_Tokens
     int i = 0;
     int currentParentLayer = -1;
-    while (i < token_vector->size - 3)
+    while (i < NU_Token_vector->size - 3)
     {
-        const enum Token token = *((enum Token*) Vector_Get(token_vector, i));
+        const enum NU_Token NU_Token = *((enum NU_Token*) Vector_Get(NU_Token_vector, i));
 
         // New tag -> Add a new node
-        if (token == OPEN_TAG)
+        if (NU_Token == OPEN_TAG)
         {
-            if (AssertNewTagGrammar(token_vector, i) == 0)
+            if (AssertNewTagGrammar(NU_Token_vector, i) == 0)
             {
                 // Enforce max tree depth
-                if (currentParentLayer+1 == max_stack_depth)
+                if (currentParentLayer+1 == MAX_TREE_DEPTH)
                 {
                     printf("%s", "[Generate Tree] Error! Exceeded max tree depth of 64");
                     return -1; // Failure
@@ -471,20 +430,20 @@ int generate_tree(char* src_buffer, uint32_t src_length, struct Vector* token_ve
 
                 // Create a new node
                 struct Node newNode;
-                newNode.tag = TokenToTag(*((enum Token*) Vector_Get(token_vector, i+1)));
+                newNode.tag = NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(NU_Token_vector, i+1)));
                 newNode.child_count = 0;
                 newNode.first_child_index = -1;
-                newNode.parent_index = tree_stack[currentParentLayer].size - 1;
-                Vector_Push(&tree_stack[currentParentLayer+1], &newNode);
+                newNode.parent_index = ui_tree->tree_stack[currentParentLayer].size - 1;
+                Vector_Push(&ui_tree->tree_stack[currentParentLayer+1], &newNode);
 
 
                 if (currentParentLayer != -1) // Only equals -1 for the root window node (optimisation would be to remvoe this check and append root node at beggining of function)
                 {
                     // Inform parent that parent has new child
-                    struct Node* parentNode = (struct Node*) Vector_Get(&tree_stack[currentParentLayer], newNode.parent_index);
+                    struct Node* parentNode = (struct Node*) Vector_Get(&ui_tree->tree_stack[currentParentLayer], newNode.parent_index);
                     if (parentNode->child_count == 0)
                     {
-                        parentNode->first_child_index = tree_stack[currentParentLayer+1].size - 1;
+                        parentNode->first_child_index = ui_tree->tree_stack[currentParentLayer+1].size - 1;
                     }
                     parentNode->child_count += 1;
                 }
@@ -494,7 +453,7 @@ int generate_tree(char* src_buffer, uint32_t src_length, struct Vector* token_ve
                 // Move one layer deeper
                 currentParentLayer++;
 
-                // Increment token
+                // Increment NU_Token
                 i+=2;
                 continue;
             }
@@ -505,14 +464,14 @@ int generate_tree(char* src_buffer, uint32_t src_length, struct Vector* token_ve
         }
 
         // Open end tag -> tag closes -> move up one layer
-        if (token == OPEN_END_TAG)
+        if (NU_Token == OPEN_END_TAG)
         {
             if (currentParentLayer < 0) break;
         
-            enum Tag openTag = ((struct Node*) Vector_Get(&tree_stack[currentParentLayer], tree_stack[currentParentLayer].size - 1))->tag;
+            enum Tag openTag = ((struct Node*) Vector_Get(&ui_tree->tree_stack[currentParentLayer], ui_tree->tree_stack[currentParentLayer].size - 1))->tag;
            
 
-            if (AssertTagCloseStartGrammar(token_vector, i, openTag) != 0)
+            if (AssertTagCloseStartGrammar(NU_Token_vector, i, openTag) != 0)
             {
                 return -1; // Failure
             }
@@ -520,18 +479,18 @@ int generate_tree(char* src_buffer, uint32_t src_length, struct Vector* token_ve
             // Move one layer higher
             currentParentLayer--;
 
-            // Increment token
+            // Increment NU_Token
             i+=3;
             continue;
         }
 
         // Close end tag -> tag self closes -> move up one layer
-        if (token == CLOSE_END_TAG)
+        if (NU_Token == CLOSE_END_TAG)
         {
             // Move one layer higher
             currentParentLayer--;
 
-            // Increment token
+            // Increment NU_Token
             i+=1;
             continue;
         }
@@ -542,7 +501,13 @@ int generate_tree(char* src_buffer, uint32_t src_length, struct Vector* token_ve
     return 0; // Success
 }
 
-int parse(char* filepath)
+// Internal Functions ----------- //
+
+
+
+// Public Functions ------------- //
+
+int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
 {
     // Open XML source file
     FILE* f = fopen(filepath, "r");
@@ -561,7 +526,7 @@ int parse(char* filepath)
         return -1;
     }
 
-    // Create a src buffer
+    // Create a src buffer and calculate the length
     uint32_t src_length = (uint32_t)file_size_long;
     char* src_buffer = malloc(src_length + 1);
     src_length = fread(src_buffer, 1, file_size_long, f);
@@ -569,45 +534,43 @@ int parse(char* filepath)
     fclose(f);
 
 
-    // Init token vector and reserve ~1MB
-    struct Vector token_vector;
-    Vector_Reserve(&token_vector, sizeof(enum Token), 250000);
+    // Init Token vector and reserve ~1MB
+    struct Vector NU_Token_vector;
+    Vector_Reserve(&NU_Token_vector, sizeof(enum NU_Token), 250000);
 
     // Init property text reference vector and reserve ~900KB
     struct Vector ptext_ref_vector;
-    Vector_Reserve(&ptext_ref_vector, sizeof(struct PTextRef), 100000);
+    Vector_Reserve(&ptext_ref_vector, sizeof(struct Property_Text_Ref), 100000);
 
-    // Init text arena
-    struct TextArena text_arena;
-    Vector_Reserve(&text_arena.free_list, sizeof(struct ArenaFreeElement), 100000); // reserve ~800KB
-    Vector_Reserve(&text_arena.text_refs, sizeof(struct TextRef), 100000); // reserve ~800KB
-    Vector_Reserve(&text_arena.char_buffer, sizeof(char), 1000000); // reserve ~1MB
+    // Init UI tree text arena
+    Vector_Reserve(&ui_tree->text_arena.free_list, sizeof(struct Arena_Free_Element), 100000); // reserve ~800KB
+    Vector_Reserve(&ui_tree->text_arena.text_refs, sizeof(struct Text_Ref), 100000); // reserve ~800KB
+    Vector_Reserve(&ui_tree->text_arena.char_buffer, sizeof(char), 1000000); // reserve ~1MB
 
+    // Init UI tree layers -> reserve 100 nodes per stack layer = 384KB
+    Vector_Reserve(&ui_tree->tree_stack[0], sizeof(struct Node), 1); // 1 root element
+    for (int i=1; i<MAX_TREE_DEPTH; i++) {
+        Vector_Reserve(&ui_tree->tree_stack[i], sizeof(struct Node), 100);
+    }
 
     // Tokenise the file source
-    tokenise(src_buffer, src_length, &token_vector, &ptext_ref_vector, &text_arena);
+    NU_Tokenise(src_buffer, src_length, &NU_Token_vector, &ptext_ref_vector, &ui_tree->text_arena);
 
     // Generate UI tree
-    if (generate_tree(src_buffer, src_length, &token_vector, &ptext_ref_vector) != 0) return -1; // Failure
+    if (NU_Generate_Tree(src_buffer, src_length, ui_tree, &NU_Token_vector, &ptext_ref_vector) != 0) return -1; // Failure
 
-
-
-    // Free memory
-    Vector_Free(&token_vector);
+    // Free token and property text reference memory
+    Vector_Free(&NU_Token_vector);
     Vector_Free(&ptext_ref_vector);
-    Vector_Free(&text_arena.free_list);
-    Vector_Free(&text_arena.text_refs);
-    Vector_Free(&text_arena.char_buffer);
 
     return 0; // Success
 }
 
-int main()
+void NU_Free_UI_Tree_Memory(struct UI_Tree* ui_tree)
 {
-    printf("Node size: %zu\n", sizeof(struct Node));
-    timer_start();
-    start_measurement();
-    parse("tiny.xml");
-    end_measurement();
-    timer_stop();
+    Vector_Free(&ui_tree->text_arena.free_list);
+    Vector_Free(&ui_tree->text_arena.text_refs);
+    Vector_Free(&ui_tree->text_arena.char_buffer);
 }
+
+// Public Functions ------------- //
