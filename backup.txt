@@ -119,34 +119,6 @@ void* Vector_Get(struct Vector* vector, uint32_t index)
     return (char*) vector->data + index * vector->element_size;
 }
 
-
-
-
-struct TextRef
-{
-    uint32_t buffer_index;
-    uint32_t char_count;
-    uint32_t char_capacity;
-};
-
-struct ArenaFreeElement
-{
-    uint32_t index;
-    uint32_t length;
-};
-
-struct TextArena
-{
-    struct Vector free_list;
-    struct Vector text_refs;
-    struct Vector char_buffer;
-};
-
-
-
-
-
-
 enum Token word_to_token(char word[], uint8_t word_char_count)
 {
     for (uint8_t i = 0; i < 9; i++) {
@@ -496,19 +468,16 @@ int generate_tree(char* src_buffer, uint32_t src_length, struct Vector* token_ve
 
 int parse(char* filepath)
 {
-    // Open XML source file
     FILE* f = fopen(filepath, "r");
     if (!f) {
         fprintf(stderr, "Cannot open file '%s': %s\n", filepath, strerror(errno));
         return -1;
     }
-
-    // Determine file size
     fseek(f, 0, SEEK_END);
     long file_size_long = ftell(f);
     fseek(f, 0, SEEK_SET);
-    if (file_size_long > UINT32_MAX) 
-    {
+
+    if (file_size_long > UINT32_MAX) {
         printf("%s", "Src file is too large! It must be < 4 294 967 295 Bytes");
         return -1;
     }
@@ -530,32 +499,15 @@ int parse(char* filepath)
     struct Vector ptext_ref_vector;
     Vector_Reserve(&ptext_ref_vector, sizeof(struct PTextRef), 100000);
 
-    // Init text arena
-    struct TextArena text_arena;
-    Vector_Reserve(&text_arena.free_list, sizeof(struct ArenaFreeElement), 100000); // reserve ~800KB
-    Vector_Reserve(&text_arena.text_refs, sizeof(struct TextRef), 100000); // reserve ~800KB
-    Vector_Reserve(&text_arena.char_buffer, sizeof(char), 1000000); // reserve ~1MB
-
-
-
     // Tokenise the file source
     tokenise(src_buffer, src_length, &token_vector, &ptext_ref_vector);
 
     // Generate UI tree
-    if (generate_tree(src_buffer, src_length, &token_vector, &ptext_ref_vector) != 0) return -1; // Failure
+    generate_tree(src_buffer, src_length, &token_vector, &ptext_ref_vector);
 
-
-
-    // Free memory
+    // Free token vector memory
     Vector_Free(&token_vector);
-    Vector_Free(&ptext_ref_vector);
-    Vector_Free(&text_arena.free_list);
-    Vector_Free(&text_arena.text_refs);
-    Vector_Free(&text_arena.char_buffer);
-
-
-
-    return 0; // Success
+    return 0;
 }
 
 int main()
