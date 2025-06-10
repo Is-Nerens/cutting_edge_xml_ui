@@ -210,7 +210,6 @@ void tokenise(
             // Reset global text character count
             if (text_char_count > 0)
             {
-                // printf("%c", ']');
                 struct TextRef new_ref;
                 new_ref.char_count = text_char_count;
                 new_ref.char_capacity = text_char_count;
@@ -233,7 +232,6 @@ void tokenise(
             // Reset global text character count
             if (text_char_count > 0)
             {
-                // printf("%c", ']');
                 struct TextRef new_ref;
                 new_ref.char_count = text_char_count;
                 new_ref.char_capacity = text_char_count;
@@ -346,14 +344,11 @@ void tokenise(
             {
                 Vector_Push(&text_arena->char_buffer, &c);
                 text_char_count += 1;
-                // printf("%c", c);
             }
 
             // text starts
             if (text_char_count == 0 && c != ' ')
             {
-                // printf("%c", '[');
-                // printf("%c", c);
                 text_arena_buffer_index = text_arena->char_buffer.size;
                 Vector_Push(&text_arena->char_buffer, &c);
                 text_char_count = 1;
@@ -595,19 +590,6 @@ int parse(char* filepath)
     // Generate UI tree
     if (generate_tree(src_buffer, src_length, &token_vector, &ptext_ref_vector) != 0) return -1; // Failure
 
-    for (int i=0; i<text_arena.text_refs.size; i++)
-    {
-        struct TextRef* text_ref = ((struct TextRef* ) Vector_Get(&text_arena.text_refs, i));
-        int buffer_index = text_ref->buffer_index;
-        int char_count = text_ref->char_count;
-        printf("%s", "word: [");
-        for (int j=buffer_index; j<buffer_index + char_count; j++)
-        {
-            printf("%c", *((char*) Vector_Get(&text_arena.char_buffer, j)));
-        }
-        printf("%c%c", ']', ' ');
-    }
-
 
 
     // Free memory
@@ -616,8 +598,6 @@ int parse(char* filepath)
     Vector_Free(&text_arena.free_list);
     Vector_Free(&text_arena.text_refs);
     Vector_Free(&text_arena.char_buffer);
-
-
 
     return 0; // Success
 }
