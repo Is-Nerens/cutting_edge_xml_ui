@@ -158,11 +158,20 @@ enum Token word_to_token(char word[], uint8_t word_char_count)
     return UNDEFINED;
 }
 
-void tokenise(char* src_buffer, uint32_t src_length, struct Vector* token_vector, struct Vector* ptext_ref_vector)
+void tokenise(
+    char* src_buffer, 
+    uint32_t src_length, 
+    struct Vector* token_vector, 
+    struct Vector* ptext_ref_vector, 
+    struct TextArena* text_arena) 
 {
     // Store current token word
     uint8_t word_char_index = 0;
     char word[24];
+
+    // Store global text char indexes
+    uint32_t text_arena_buffer_index = 0;
+    uint32_t text_char_count = 0;
 
     // Context
     uint8_t ctx = 0; // 0 == globalspace, 1 == commentspace, 2 == tagspace, 3 == propertyspace
@@ -198,7 +207,18 @@ void tokenise(char* src_buffer, uint32_t src_length, struct Vector* token_vector
         // Open end tag
         if (ctx == 0 && i < src_length - 1 && c == '<' && src_buffer[i+1] == '/')
         {
-            // push tag text if any -> not implemented
+            // Reset global text character count
+            if (text_char_count > 0)
+            {
+                // printf("%c", ']');
+                struct TextRef new_ref;
+                new_ref.char_count = text_char_count;
+                new_ref.char_capacity = text_char_count;
+                new_ref.buffer_index = text_arena_buffer_index;
+                Vector_Push(&text_arena->text_refs, &new_ref);
+            }
+            text_char_count = 0;
+
             enum Token t = OPEN_END_TAG;
             Vector_Push(token_vector, &t);
             word_char_index = 0;
@@ -210,26 +230,22 @@ void tokenise(char* src_buffer, uint32_t src_length, struct Vector* token_vector
         // Tag begins
         if (ctx == 0 && c == '<')
         {
-            // push tag text if any -> not implemented
+            // Reset global text character count
+            if (text_char_count > 0)
+            {
+                // printf("%c", ']');
+                struct TextRef new_ref;
+                new_ref.char_count = text_char_count;
+                new_ref.char_capacity = text_char_count;
+                new_ref.buffer_index = text_arena_buffer_index;
+                Vector_Push(&text_arena->text_refs, &new_ref);
+            }
+            text_char_count = 0;
+
             enum Token t = OPEN_TAG;
             Vector_Push(token_vector, &t);
             word_char_index = 0;
             ctx = 2;
-            i+=1;
-            continue;
-        }
-
-        // Tag ends
-        if (ctx == 2 && c == '>')
-        {
-            if (word_char_index > 0) {
-                enum Token t = word_to_token(word, word_char_index);
-                Vector_Push(token_vector, &t);
-            }
-            enum Token t = CLOSE_TAG;
-            Vector_Push(token_vector, &t);
-            word_char_index = 0;
-            ctx = 0;
             i+=1;
             continue;
         }
@@ -242,6 +258,21 @@ void tokenise(char* src_buffer, uint32_t src_length, struct Vector* token_vector
                 Vector_Push(token_vector, &t);
             }
             enum Token t = CLOSE_END_TAG;
+            Vector_Push(token_vector, &t);
+            word_char_index = 0;
+            ctx = 0;
+            i+=2;
+            continue;
+        }
+
+        // Tag ends
+        if (ctx == 2 && c == '>')
+        {
+            if (word_char_index > 0) {
+                enum Token t = word_to_token(word, word_char_index);
+                Vector_Push(token_vector, &t);
+            }
+            enum Token t = CLOSE_TAG;
             Vector_Push(token_vector, &t);
             word_char_index = 0;
             ctx = 0;
@@ -305,6 +336,28 @@ void tokenise(char* src_buffer, uint32_t src_length, struct Vector* token_vector
         {
             word[word_char_index] = c;
             word_char_index+=1;
+        }
+
+
+        if (ctx == 0 && c != '\t' && c != '\n')
+        {
+            // text continues
+            if (text_char_count > 0)
+            {
+                Vector_Push(&text_arena->char_buffer, &c);
+                text_char_count += 1;
+                // printf("%c", c);
+            }
+
+            // text starts
+            if (text_char_count == 0 && c != ' ')
+            {
+                // printf("%c", '[');
+                // printf("%c", c);
+                text_arena_buffer_index = text_arena->char_buffer.size;
+                Vector_Push(&text_arena->char_buffer, &c);
+                text_char_count = 1;
+            }
         }
 
         i+=1;
@@ -521,7 +574,6 @@ int parse(char* filepath)
     fclose(f);
 
 
-
     // Init token vector and reserve ~1MB
     struct Vector token_vector;
     Vector_Reserve(&token_vector, sizeof(enum Token), 250000);
@@ -537,12 +589,24 @@ int parse(char* filepath)
     Vector_Reserve(&text_arena.char_buffer, sizeof(char), 1000000); // reserve ~1MB
 
 
-
     // Tokenise the file source
-    tokenise(src_buffer, src_length, &token_vector, &ptext_ref_vector);
+    tokenise(src_buffer, src_length, &token_vector, &ptext_ref_vector, &text_arena);
 
     // Generate UI tree
     if (generate_tree(src_buffer, src_length, &token_vector, &ptext_ref_vector) != 0) return -1; // Failure
+
+    for (int i=0; i<text_arena.text_refs.size; i++)
+    {
+        struct TextRef* text_ref = ((struct TextRef* ) Vector_Get(&text_arena.text_refs, i));
+        int buffer_index = text_ref->buffer_index;
+        int char_count = text_ref->char_count;
+        printf("%s", "word: [");
+        for (int j=buffer_index; j<buffer_index + char_count; j++)
+        {
+            printf("%c", *((char*) Vector_Get(&text_arena.char_buffer, j)));
+        }
+        printf("%c%c", ']', ' ');
+    }
 
 
 
