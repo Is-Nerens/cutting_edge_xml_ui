@@ -1,5 +1,7 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MAX_TREE_DEPTH 32
+#define LAYOUT_HORIZONTAL 0x00
+#define LAYOUT_VERTICAL   0x01
 
 #include <stdint.h>
 #include <stdio.h>
@@ -64,17 +66,21 @@ enum Tag
 
 struct Node
 {
+    SDL_Window* window;
+    SDL_Renderer* renderer;
     enum Tag tag;
+    float x, y, width, height, gap;
     int parent_index;
     int first_child_index;
-    float x, y, width, height;
+    uint16_t child_capacity;
+    uint16_t child_count;
     uint16_t pad_top, pad_bottom, pad_left, pad_right;
     uint16_t border_top, border_bottom, border_left, border_right;
     uint16_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
-    uint16_t child_count;
     char background_r, background_g, background_b, background_a;
     char border_r, border_g, border_b, border_a;
     char layout_flags;
+    char growth;
 };
 
 struct Property_Text_Ref
@@ -108,6 +114,7 @@ struct UI_Tree
 {
     struct Vector tree_stack[MAX_TREE_DEPTH];
     struct Text_Arena text_arena;
+    uint16_t deepest_layer;
 };
 
 // Structs ---------------------- //
@@ -116,7 +123,7 @@ struct UI_Tree
 
 // Internal Functions ----------- //
 
-enum NU_Token NU_Word_To_NU_Token(char word[], uint8_t word_char_count)
+static enum NU_Token NU_Word_To_NU_Token(char word[], uint8_t word_char_count)
 {
     for (uint8_t i = 0; i < 9; i++) {
         size_t len = keyword_lengths[i];
@@ -127,14 +134,14 @@ enum NU_Token NU_Word_To_NU_Token(char word[], uint8_t word_char_count)
     return UNDEFINED;
 }
 
-enum Tag NU_Token_To_Tag(enum NU_Token NU_Token)
+static enum Tag NU_Token_To_Tag(enum NU_Token NU_Token)
 {
     int tag_candidate = NU_Token - 3;
     if (tag_candidate < 0) return NAT;
     return NU_Token - 3;
 }
 
-void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector, struct Text_Arena* text_arena) 
+static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector, struct Text_Arena* text_arena) 
 {
     // Store current NU_Token word
     uint8_t word_char_index = 0;
@@ -338,12 +345,12 @@ void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_
     }
 }
 
-int NU_Is_Token_Property(enum NU_Token NU_Token)
+static int NU_Is_Token_Property(enum NU_Token NU_Token)
 {
     return NU_Token < 3;
 }
 
-int AssertRootGrammar(struct Vector* token_vector)
+static int AssertRootGrammar(struct Vector* token_vector)
 {
     // ENFORCE RULE: FIRST TOKEN MUST BE OPEN TAG
     // ENFORCE RULE: SECOND TOKEN MUST BE TAG NAME
@@ -376,7 +383,7 @@ int AssertRootGrammar(struct Vector* token_vector)
     }
 }
 
-int AssertNewTagGrammar(struct Vector* token_vector, int i)
+static int AssertNewTagGrammar(struct Vector* token_vector, int i)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG NAME 
     if (i < token_vector->size - 2 && NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(token_vector, i+1))) != NAT)
@@ -387,7 +394,7 @@ int AssertNewTagGrammar(struct Vector* token_vector, int i)
     return -1; // Failure
 }
 
-int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum Tag openTag)
+static int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum Tag openTag)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG AND MUST MATCH OPENING TAG
     // ENDORCE RULE: THIRD TOKEN MUST BE A TAG END
@@ -401,7 +408,7 @@ int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum Tag open
     return -1; // Failure
 }
 
-int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_tree, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
+static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_tree, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
 {
     // Enforce root grammar
     if (AssertRootGrammar(NU_Token_vector) != 0) {
@@ -410,7 +417,8 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_t
 
     // Iterate over all NU_Tokens
     int i = 0;
-    int currentParentLayer = -1;
+    int current_layer = -1;
+    ui_tree->deepest_layer = 0;
     while (i < NU_Token_vector->size - 3)
     {
         const enum NU_Token NU_Token = *((enum NU_Token*) Vector_Get(NU_Token_vector, i));
@@ -421,37 +429,40 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_t
             if (AssertNewTagGrammar(NU_Token_vector, i) == 0)
             {
                 // Enforce max tree depth
-                if (currentParentLayer+1 == MAX_TREE_DEPTH)
+                if (current_layer+1 == MAX_TREE_DEPTH)
                 {
                     printf("%s", "[Generate Tree] Error! Exceeded max tree depth of 64");
                     return -1; // Failure
                 }
 
-
                 // Create a new node
                 struct Node newNode;
                 newNode.tag = NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(NU_Token_vector, i+1)));
+                newNode.window = NULL; 
                 newNode.child_count = 0;
                 newNode.first_child_index = -1;
-                newNode.parent_index = ui_tree->tree_stack[currentParentLayer].size - 1;
-                Vector_Push(&ui_tree->tree_stack[currentParentLayer+1], &newNode);
+                newNode.parent_index = ui_tree->tree_stack[current_layer].size - 1;
+                Vector_Push(&ui_tree->tree_stack[current_layer+1], &newNode);
 
 
-                if (currentParentLayer != -1) // Only equals -1 for the root window node (optimisation would be to remvoe this check and append root node at beggining of function)
+                if (current_layer != -1) // Only equals -1 for the root window node (optimisation would be to remove this check and append root node at beggining of function)
                 {
                     // Inform parent that parent has new child
-                    struct Node* parentNode = (struct Node*) Vector_Get(&ui_tree->tree_stack[currentParentLayer], newNode.parent_index);
+                    struct Node* parentNode = (struct Node*) Vector_Get(&ui_tree->tree_stack[current_layer], newNode.parent_index);
                     if (parentNode->child_count == 0)
                     {
-                        parentNode->first_child_index = ui_tree->tree_stack[currentParentLayer+1].size - 1;
+                        parentNode->first_child_index = ui_tree->tree_stack[current_layer+1].size - 1;
                     }
                     parentNode->child_count += 1;
+                    parentNode->child_capacity += 1;
                 }
 
                 
 
                 // Move one layer deeper
-                currentParentLayer++;
+                current_layer++;
+
+                ui_tree->deepest_layer = MAX(ui_tree->deepest_layer, current_layer);
 
                 // Increment NU_Token
                 i+=2;
@@ -466,18 +477,17 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_t
         // Open end tag -> tag closes -> move up one layer
         if (NU_Token == OPEN_END_TAG)
         {
-            if (currentParentLayer < 0) break;
-        
-            enum Tag openTag = ((struct Node*) Vector_Get(&ui_tree->tree_stack[currentParentLayer], ui_tree->tree_stack[currentParentLayer].size - 1))->tag;
-           
-
+            if (current_layer < 0) break;
+            
+            // Check close grammar
+            enum Tag openTag = ((struct Node*) Vector_Get(&ui_tree->tree_stack[current_layer], ui_tree->tree_stack[current_layer].size - 1))->tag;
             if (AssertTagCloseStartGrammar(NU_Token_vector, i, openTag) != 0)
             {
                 return -1; // Failure
             }
 
             // Move one layer higher
-            currentParentLayer--;
+            current_layer--;
 
             // Increment NU_Token
             i+=3;
@@ -488,7 +498,7 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_t
         if (NU_Token == CLOSE_END_TAG)
         {
             // Move one layer higher
-            currentParentLayer--;
+            current_layer--;
 
             // Increment NU_Token
             i+=1;
@@ -532,7 +542,6 @@ int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
     src_length = fread(src_buffer, 1, file_size_long, f);
     src_buffer[src_length] = '\0'; 
     fclose(f);
-
 
     // Init Token vector and reserve ~1MB
     struct Vector NU_Token_vector;
