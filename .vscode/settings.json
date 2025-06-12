@@ -4,6 +4,7 @@
         "stdio.h": "c",
         "grammar.h": "c",
         "parser.h": "c",
-        "sdl.h": "c"
+        "sdl.h": "c",
+        "math.h": "c"
     }
 }
