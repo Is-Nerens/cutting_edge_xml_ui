@@ -20,10 +20,10 @@ void NU_Reset_Node_size(struct Node* node)
     node->border_right = 0;
     node->border_top = 0;
     node->border_bottom = 0;
-    node->pad_left = 0;
-    node->pad_right = 0;
-    node->pad_top = 0;
-    node->pad_bottom = 0;
+    node->pad_left = 4;
+    node->pad_right = 4;
+    node->pad_top = 4;
+    node->pad_bottom = 4;
     node->gap = 10.0f;
     node->width = 0;
     node->height = 0;
@@ -141,15 +141,14 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
 
 void NU_Grow_Child_Nodes_H(struct Node* parent, struct Vector* child_layer)
 {
-    int is_layout_horizontal = (parent->layout_flags & 0x01) == LAYOUT_HORIZONTAL;
     float remaining_width = parent->width;
 
-    if (!is_layout_horizontal)
+    if (!(parent->layout_flags & LAYOUT_HORIZONTAL))
     {   
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
-            if (child->growth == 1 || child->growth == 3)
+            if (child->layout_flags & GROW_HORIZONTAL)
             {
                 float rem_width = remaining_width - child->width;
                 child->width += rem_width; 
@@ -174,7 +173,7 @@ void NU_Grow_Child_Nodes_H(struct Node* parent, struct Vector* child_layer)
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
-            if (child->growth == 1 || child->growth == 3 && child->tag != WINDOW) growable_count += 1;
+            if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW) growable_count += 1;
         }
 
         if (growable_count == 0) return;
@@ -185,7 +184,7 @@ void NU_Grow_Child_Nodes_H(struct Node* parent, struct Vector* child_layer)
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
-            if (child->growth == 1 || child->growth == 3 && child->tag != WINDOW)
+            if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW)
             {
                 child->width += growth_per_element;
                 child->width = roundf(child->width);
@@ -196,15 +195,14 @@ void NU_Grow_Child_Nodes_H(struct Node* parent, struct Vector* child_layer)
 
 void NU_Grow_Child_Nodes_V(struct Node* parent, struct Vector* child_layer)
 {
-    int is_layout_horizontal = (parent->layout_flags & 0x01) == LAYOUT_HORIZONTAL;
     float remaining_height = parent->height;
 
-    if (is_layout_horizontal)
+    if (parent->layout_flags & LAYOUT_HORIZONTAL)
     {
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
-            if (child->growth == 2 || child->growth == 3)
+            if (child->layout_flags & GROW_VERTICAL)
             {
                 float rem_height = remaining_height - child->height;
                 child->height += rem_height; 
@@ -229,7 +227,7 @@ void NU_Grow_Child_Nodes_V(struct Node* parent, struct Vector* child_layer)
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
-            if (child->growth == 2 || child->growth == 3 && child->tag != WINDOW) growable_count += 1;
+            if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW) growable_count += 1;
         }
 
         if (growable_count == 0) return;
@@ -240,7 +238,7 @@ void NU_Grow_Child_Nodes_V(struct Node* parent, struct Vector* child_layer)
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
-            if (child->growth == 2 || child->growth == 3 && child->tag != WINDOW)
+            if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW)
             {
                 child->height += growth_per_element;
                 child->height = roundf(child->height);
@@ -331,16 +329,15 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
                 {
                     node->x = cursor->x + node->border_left;
                     node->y = cursor->y + node->border_top;
-                    cursor->x += node->width + cursor->gap;
-                    // printf("%s %f", "cursor gap:", cursor->gap);
+                    cursor->y += node->height + cursor->gap;
                 }
 
                 if (l != ui_tree->deepest_layer)
                 {
                     // Create new cursor for node
                     struct NU_Cursor new_cursor;
-                    new_cursor.x = node->x;
-                    new_cursor.y = node->y;
+                    new_cursor.x = node->x + node->pad_left;
+                    new_cursor.y = node->y + node->pad_top;
                     new_cursor.gap = node->gap;
 
                     // Add new node cursor
@@ -374,7 +371,19 @@ void NU_Draw_Node(struct Node* node)
     // printf("%s %d %s %f %f %f %f %s \n", "node tag", node->tag, "position: {", rect.x, rect.y, rect.w, rect.h, "}");
 
     // SET RECT COLOUR
-    SDL_SetRenderDrawColor(node->renderer, 255, 100, 0, 255);
+    if (node->tag == RECT)
+    {
+        SDL_SetRenderDrawColor(node->renderer, 255, 100, 0, 255);
+    }
+    else if (node->tag == BUTTON)
+    {
+        SDL_SetRenderDrawColor(node->renderer, 20, 255, 120, 255);
+    }
+    else
+    {
+        SDL_SetRenderDrawColor(node->renderer, 100, 150, 120, 255);
+    }
+    
 
     // RENDER RECT
     SDL_RenderFillRect(node->renderer, &rect);

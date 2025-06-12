@@ -35,11 +35,17 @@ int main()
     // Create an enpty UI tree stack
     struct UI_Tree ui_tree;
 
+    timer_start();
+    start_measurement();
+
     // Parse xml into UI tree
-    if (NU_Parse("test.xml", &ui_tree) != 0)
+    if (NU_Parse("tiny.xml", &ui_tree) != 0)
     {
         return -1;
     }
+
+    end_measurement();
+    timer_stop();
 
     // Check if SDL initialised
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -56,7 +62,7 @@ int main()
     Vector_Reserve(&renderers, sizeof(SDL_Renderer*), 8);
 
     printf("%s %zu\n", "node bytes:", sizeof(struct Node));
-
+    
     // Application loop
     int isRunning = 1;
     while (isRunning)
@@ -68,7 +74,7 @@ int main()
         NU_Calculate_Sizes(&ui_tree, &windows, &renderers);
         NU_Grow_Nodes(&ui_tree);
         NU_Calculate_Positions(&ui_tree);
-        NU_Render(&ui_tree, &windows, &renderers);
+        // NU_Render(&ui_tree, &windows, &renderers);
 
         end_measurement();
         timer_stop();

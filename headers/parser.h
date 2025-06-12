@@ -2,6 +2,8 @@
 #define MAX_TREE_DEPTH 32
 #define LAYOUT_HORIZONTAL 0x00
 #define LAYOUT_VERTICAL   0x01
+#define GROW_HORIZONTAL   0x02
+#define GROW_VERTICAL     0x04
 
 #include <stdint.h>
 #include <stdio.h>
@@ -23,7 +25,6 @@ const char* keywords[] = {
 };
 
 const uint8_t keyword_lengths[] = { 2, 3, 4, 6, 4, 6, 4, 4, 5 };
-
 
 
 // Enums ------------------------ //
@@ -79,7 +80,6 @@ struct Node
     char background_r, background_g, background_b, background_a;
     char border_r, border_g, border_b, border_a;
     char layout_flags;
-    char growth;
 };
 
 struct Property_Text_Ref
@@ -385,11 +385,26 @@ static int AssertRootGrammar(struct Vector* token_vector)
 static int AssertNewTagGrammar(struct Vector* token_vector, int i)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG NAME 
+    // ENFORCE RULE: THIRD TOKEN MUST BE CLOSE CLOSE_END OR PROPERTY
     if (i < token_vector->size - 2 && NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(token_vector, i+1))) != NAT)
     {
         enum NU_Token third_token = *((enum NU_Token*) Vector_Get(token_vector, i+2));
         if (third_token == CLOSE_TAG || third_token == CLOSE_END_TAG || NU_Is_Token_Property(third_token)) return 0; // Success
     }
+    return -1; // Failure
+}
+
+static int AssertPropertyGrammar(struct Vector* token_vector, int i)
+{
+    // ENFORCE RULE: NEXT TOKEN SHOULD BE PROPERTY ASSIGN
+    // ENFORCE RULE: THIRD TOKEN SHOULD BE PROPERTY TEXT
+    if (i < token_vector->size - 2 && *((enum NU_Token*) Vector_Get(token_vector, i+1)) == PROPERTY_ASSIGNMENT)
+    {
+        if (*((enum NU_Token*) Vector_Get(token_vector, i+2)) == PROPERTY_VALUE) return 0; // Success
+        printf("%s\n", "[Generate_Tree] Error! Expected property value after assignment.");
+        return -1; // Failure
+    }
+    printf("%s\n", "[Generate_Tree] Error! Expected '=' after property.");
     return -1; // Failure
 }
 
@@ -410,14 +425,21 @@ static int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum T
 static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_tree, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
 {
     // Enforce root grammar
-    if (AssertRootGrammar(NU_Token_vector) != 0) {
+    if (AssertRootGrammar(NU_Token_vector) != 0) 
+    {
         return -1; // Failure 
     }
+
+    // Get first property text reference
+    uint32_t property_text_index = 0;
+    struct Property_Text_Ref* current_property_text;
+    if (ptext_ref_vector->size > 0) current_property_text = Vector_Get(ptext_ref_vector, property_text_index);
 
     // Iterate over all NU_Tokens
     int i = 0;
     int current_layer = -1;
     ui_tree->deepest_layer = 0;
+    struct Node* current_node = (struct Node*) Vector_Get(&ui_tree->tree_stack[0], 0);
     while (i < NU_Token_vector->size - 3)
     {
         const enum NU_Token NU_Token = *((enum NU_Token*) Vector_Get(NU_Token_vector, i));
@@ -440,8 +462,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 newNode.renderer = NULL; 
                 newNode.child_count = 0;
                 newNode.first_child_index = -1;
-                newNode.parent_index = ui_tree->tree_stack[current_layer].size - 1;
-                Vector_Push(&ui_tree->tree_stack[current_layer+1], &newNode);
+                newNode.layout_flags = 0;
+                newNode.parent_index = ui_tree->tree_stack[current_layer].size - 1; 
+
+                // Add node to tree
+                struct Vector* node_layer = &ui_tree->tree_stack[current_layer+1];
+                Vector_Push(node_layer, &newNode);
+                current_node = (struct Node*) Vector_Get(node_layer, node_layer->size -1);
 
 
                 if (current_layer != -1) // Only equals -1 for the root window node (optimisation would be to remove this check and append root node at beggining of function)
@@ -503,6 +530,61 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
             i+=1;
             continue;
         }
+
+        // Property tag -> assign property to node
+        if (NU_Is_Token_Property(NU_Token))
+        {
+            if (AssertPropertyGrammar(NU_Token_vector, i) == 0)
+            {
+                current_property_text = Vector_Get(ptext_ref_vector, property_text_index);
+                property_text_index += 1;
+                char c = src_buffer[current_property_text->src_index];
+
+                // Get the property value text
+                switch (NU_Token)
+                {
+                    // Set layout direction
+                    case LAYOUT_DIRECTION_PROPERTY:
+                        if (c == 'h')
+                        {
+                            current_node->layout_flags |= LAYOUT_HORIZONTAL;
+                        }  
+                        else
+                        {
+                            current_node->layout_flags |= LAYOUT_VERTICAL;
+                        }
+                        break;
+
+                    // Set growth
+                    case GROW_PROPERTY:
+                        switch(c)
+                        {
+                            case 'v':
+                                current_node->layout_flags |= GROW_VERTICAL;
+                                break;
+                            case 'h':
+                                current_node->layout_flags |= GROW_HORIZONTAL;
+                                break;
+                            case 'b':
+                                current_node->layout_flags |= (GROW_HORIZONTAL | GROW_VERTICAL);
+                                break;
+                        }
+                        break;
+                    
+                    default:
+                        break;
+                }
+
+
+                // Increment NU_Token
+                i+=3;
+                continue;
+            }
+            else
+            {
+                return -1;
+            }
+        }
         
         i+= 1;
     }
@@ -520,7 +602,8 @@ int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
 {
     // Open XML source file
     FILE* f = fopen(filepath, "r");
-    if (!f) {
+    if (!f) 
+    {
         fprintf(stderr, "Cannot open file '%s': %s\n", filepath, strerror(errno));
         return -1;
     }
@@ -557,7 +640,8 @@ int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
 
     // Init UI tree layers -> reserve 100 nodes per stack layer = 384KB
     Vector_Reserve(&ui_tree->tree_stack[0], sizeof(struct Node), 1); // 1 root element
-    for (int i=1; i<MAX_TREE_DEPTH; i++) {
+    for (int i=1; i<MAX_TREE_DEPTH; i++) 
+    {
         Vector_Reserve(&ui_tree->tree_stack[i], sizeof(struct Node), 100);
     }
 
