@@ -1,28 +1,64 @@
+#include <SDL3/SDL.h>
+
 struct NU_Cursor
 {
-    float x, y;
+    float x, y, gap;
 };
 
-void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* renderers)
+void NU_Create_New_Window(struct Node* window_node, struct Vector* windows, struct Vector* renderers)
 {
-    // Compute sizes of nodes in the deepest layer
-    if (ui_tree->deepest_layer > 0)
-    {
-        struct Vector* layer = &ui_tree->tree_stack[ui_tree->deepest_layer];
+    SDL_Window* new_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_RESIZABLE);
+    SDL_Renderer* new_renderer = SDL_CreateRenderer(new_window, "direct3d");
+    Vector_Push(windows, &new_window);
+    Vector_Push(renderers, &new_renderer);
+    window_node->renderer = new_renderer;
+}
 
-        // For each node in the deepest layer
-        for (int i=0; i<layer->size; i++)
+void NU_Reset_Node_size(struct Node* node)
+{
+    node->border_left = 0;
+    node->border_right = 0;
+    node->border_top = 0;
+    node->border_bottom = 0;
+    node->pad_left = 0;
+    node->pad_right = 0;
+    node->pad_top = 0;
+    node->pad_bottom = 0;
+    node->gap = 10.0f;
+    node->width = 0;
+    node->height = 0;
+}
+
+void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* renderers)
+{   
+    // For each node in deepest layer
+    struct Vector* deepest_layer = &ui_tree->tree_stack[ui_tree->deepest_layer];
+    for (int i=0; i<deepest_layer->size; i++)
+    {   
+        struct Node* node = Vector_Get(deepest_layer, i);
+        NU_Reset_Node_size(node);
+        node->width = 50;
+        node->height = 50;
+
+        // If parent is window node and has no SDL window assigned to it
+        if (node->tag == WINDOW && node->renderer == NULL)
         {
-            struct Node* node = Vector_Get(layer, i);
-            node->width = 1;
-            node->height = 1;
-            node->x = 1;
-            node->y = 1;
+            // Create a new window and renderer
+            NU_Create_New_Window(node, windows, renderers);
+        }
+
+        // Inherit window and renderer from parent
+        if (node->tag != WINDOW && node->renderer == NULL)
+        {
+            struct Node* parent = Vector_Get(&ui_tree->tree_stack[ui_tree->deepest_layer - 1], node->parent_index);
+            node->renderer = parent->renderer;
         }
     }
 
+    if (ui_tree->deepest_layer == 0) return;
+
     // For each layer exluding the deepest
-    for (int l=ui_tree->deepest_layer-1; l>0; l--)
+    for (int l=ui_tree->deepest_layer-1; l>=0; l--)
     {
         struct Vector* parent_layer = &ui_tree->tree_stack[l];
         struct Vector* child_layer = &ui_tree->tree_stack[l+1];
@@ -32,6 +68,25 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
         {   
             struct Node* parent = Vector_Get(parent_layer, p);
             int is_layout_horizontal = (parent->layout_flags & 0x01) == LAYOUT_HORIZONTAL;
+            
+            NU_Reset_Node_size(parent);
+            parent->width = 50;
+            parent->height = 50;
+
+            // If parent is window node and has no SDL window assigned to it
+            if (parent->tag == WINDOW && parent->renderer == NULL)
+            {
+                // Create a new window and renderer
+                NU_Create_New_Window(parent, windows, renderers);
+            }
+
+            if (parent->child_count == 0)
+            {
+                continue; // Skip acummulating child sizes (no children)
+            }
+            
+            parent->width = 0;
+            parent->height = 0;
 
             // Track the total width and height for the parent's content
             float contentWidth = 0;
@@ -41,6 +96,12 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
             for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
                 struct Node* child = Vector_Get(child_layer, i);
+
+                // Inherit window and renderer from parent
+                if (child->tag != WINDOW && child->renderer == NULL)
+                {
+                    child->renderer = parent->renderer;
+                }
 
                 if (child->tag == WINDOW)
                 {
@@ -61,21 +122,9 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
                     contentHeight += child->height;
                     contentWidth = MAX(contentWidth, child->width);
                 }
-
-                // If child is window node and has no SDL window assigned to it
-                if (child->tag == WINDOW && child->window == NULL)
-                {
-                    // Create a new window and renderer
-                    SDL_Window* new_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_RESIZABLE);
-                    SDL_Renderer* new_renderer = SDL_CreateRenderer(new_window, "direct3d");
-                    Vector_Push(windows, new_window);
-                    Vector_Push(renderers, new_renderer);
-                    child->window = new_window;
-                    child->renderer = new_renderer;
-                }
             }
 
-            if (parent->child_count > 0 && parent->tag != WINDOW)
+            if (parent->tag != NAT)
             {
                 // Horizontal Layout
                 if (is_layout_horizontal) contentWidth += (parent->child_count) * parent->gap;
@@ -203,7 +252,7 @@ void NU_Grow_Child_Nodes_V(struct Node* parent, struct Vector* child_layer)
 void NU_Grow_Nodes(struct UI_Tree* ui_tree)
 {
     // For each layer
-    for (int l=0; l<ui_tree->deepest_layer; l++)
+    for (int l=0; l<=ui_tree->deepest_layer; l++)
     {
         struct Vector* parent_layer = &ui_tree->tree_stack[l];
         struct Vector* child_layer = &ui_tree->tree_stack[l+1];
@@ -245,12 +294,13 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
     struct NU_Cursor root_cursor;
     root_cursor.x = root_window_node->x;
     root_cursor.y = root_window_node->y;
+    root_cursor.gap = root_window_node->gap;
     Vector_Push(&cursor_buffer_1, &root_cursor);
 
-    if (ui_tree->deepest_layer > 1)
+    if (ui_tree->deepest_layer > 0)
     {
         // Iterate over each layer excluding the first and last
-        for (int l=1; l<ui_tree->deepest_layer; l++)
+        for (int l=1; l<=ui_tree->deepest_layer; l++)
         {
             int buffer_in_use = l % 2; // Alternate between the two buffers
 
@@ -281,6 +331,8 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
                 {
                     node->x = cursor->x + node->border_left;
                     node->y = cursor->y + node->border_top;
+                    cursor->x += node->width + cursor->gap;
+                    // printf("%s %f", "cursor gap:", cursor->gap);
                 }
 
                 if (l != ui_tree->deepest_layer)
@@ -289,6 +341,7 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
                     struct NU_Cursor new_cursor;
                     new_cursor.x = node->x;
                     new_cursor.y = node->y;
+                    new_cursor.gap = node->gap;
 
                     // Add new node cursor
                     if (buffer_in_use == 0) 
@@ -308,7 +361,52 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
     Vector_Free(&cursor_buffer_1);
 }
 
-void NU_Render(struct UI_Tree* ui_tree)
+void NU_Draw_Node(struct Node* node)
 {
+    if (node->tag == WINDOW) return;
 
+    SDL_FRect rect; 
+    rect.x = node->x;
+    rect.y = node->y;
+    rect.w = node->width;
+    rect.h = node->height;
+
+    // printf("%s %d %s %f %f %f %f %s \n", "node tag", node->tag, "position: {", rect.x, rect.y, rect.w, rect.h, "}");
+
+    // SET RECT COLOUR
+    SDL_SetRenderDrawColor(node->renderer, 255, 100, 0, 255);
+
+    // RENDER RECT
+    SDL_RenderFillRect(node->renderer, &rect);
+}
+
+void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* renderers)
+{
+    // Clear window images
+    for (int i=0; i<renderers->size; i++)
+    {
+        SDL_Renderer* renderer = *(SDL_Renderer**) Vector_Get(renderers, i);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);  
+        SDL_RenderClear(renderer);
+    }
+        
+    // For each layer
+    for (int l=0; l<=ui_tree->deepest_layer; l++)
+    {
+        struct Vector* layer = &ui_tree->tree_stack[l];
+        
+        // Draw all nodes in layer
+        for (int n=0; n<layer->size; n++)
+        {   
+            struct Node* node = Vector_Get(layer, n);
+            NU_Draw_Node(node);
+        }
+    }
+
+    // Render to windows
+    for (int i=0; i<renderers->size; i++)
+    {
+        SDL_Renderer* renderer = *(SDL_Renderer**) Vector_Get(renderers, i);
+        SDL_RenderPresent(renderer);
+    }
 }

@@ -66,7 +66,6 @@ enum Tag
 
 struct Node
 {
-    SDL_Window* window;
     SDL_Renderer* renderer;
     enum Tag tag;
     float x, y, width, height, gap;
@@ -438,7 +437,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 // Create a new node
                 struct Node newNode;
                 newNode.tag = NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(NU_Token_vector, i+1)));
-                newNode.window = NULL; 
+                newNode.renderer = NULL; 
                 newNode.child_count = 0;
                 newNode.first_child_index = -1;
                 newNode.parent_index = ui_tree->tree_stack[current_layer].size - 1;

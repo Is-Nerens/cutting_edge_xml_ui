@@ -36,7 +36,7 @@ int main()
     struct UI_Tree ui_tree;
 
     // Parse xml into UI tree
-    if (NU_Parse("tiny.xml", &ui_tree) != 0)
+    if (NU_Parse("test.xml", &ui_tree) != 0)
     {
         return -1;
     }
@@ -47,19 +47,13 @@ int main()
         return -1;
     }
 
-    // Create a window and renderer
-    SDL_Window* window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_RESIZABLE);
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, "direct3d");
-
     // Create a vector of window pointers and store main window
     struct Vector windows;
     Vector_Reserve(&windows, sizeof(SDL_Window*), 8);
-    Vector_Push(&windows, window);
 
     // Create a vector of renderer pointers and store main renderer
     struct Vector renderers;
     Vector_Reserve(&renderers, sizeof(SDL_Renderer*), 8);
-    Vector_Push(&renderers, renderer);
 
     printf("%s %zu\n", "node bytes:", sizeof(struct Node));
 
@@ -74,7 +68,8 @@ int main()
         NU_Calculate_Sizes(&ui_tree, &windows, &renderers);
         NU_Grow_Nodes(&ui_tree);
         NU_Calculate_Positions(&ui_tree);
-        NU_Render(&ui_tree);
+        NU_Render(&ui_tree, &windows, &renderers);
+
         end_measurement();
         timer_stop();
     }
