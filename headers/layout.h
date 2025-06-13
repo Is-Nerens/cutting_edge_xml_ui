@@ -1,8 +1,10 @@
 #include <SDL3/SDL.h>
+#include <stdbool.h>
 
 struct NU_Cursor
 {
     float x, y, gap;
+    char is_vertical;
 };
 
 void NU_Create_New_Window(struct Node* window_node, struct Vector* windows, struct Vector* renderers)
@@ -16,49 +18,27 @@ void NU_Create_New_Window(struct Node* window_node, struct Vector* windows, stru
 
 void NU_Reset_Node_size(struct Node* node)
 {
-    node->border_left = 0;
-    node->border_right = 0;
-    node->border_top = 0;
-    node->border_bottom = 0;
+    node->width = 0;
+    node->height = 0;
+    node->border_left = 2;
+    node->border_right = 2;
+    node->border_top = 2;
+    node->border_bottom = 2;
     node->pad_left = 4;
     node->pad_right = 4;
     node->pad_top = 4;
     node->pad_bottom = 4;
-    node->gap = 10.0f;
-    node->width = 0;
-    node->height = 0;
+    node->gap = 0.0f;
+    node->width = 50;
+    node->height = 50;
 }
 
 void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* renderers)
 {   
-    // For each node in deepest layer
-    struct Vector* deepest_layer = &ui_tree->tree_stack[ui_tree->deepest_layer];
-    for (int i=0; i<deepest_layer->size; i++)
-    {   
-        struct Node* node = Vector_Get(deepest_layer, i);
-        NU_Reset_Node_size(node);
-        node->width = 50;
-        node->height = 50;
-
-        // If parent is window node and has no SDL window assigned to it
-        if (node->tag == WINDOW && node->renderer == NULL)
-        {
-            // Create a new window and renderer
-            NU_Create_New_Window(node, windows, renderers);
-        }
-
-        // Inherit window and renderer from parent
-        if (node->tag != WINDOW && node->renderer == NULL)
-        {
-            struct Node* parent = Vector_Get(&ui_tree->tree_stack[ui_tree->deepest_layer - 1], node->parent_index);
-            node->renderer = parent->renderer;
-        }
-    }
-
     if (ui_tree->deepest_layer == 0) return;
 
     // For each layer exluding the deepest
-    for (int l=ui_tree->deepest_layer-1; l>=0; l--)
+    for (int l=ui_tree->deepest_layer; l>=0; l--)
     {
         struct Vector* parent_layer = &ui_tree->tree_stack[l];
         struct Vector* child_layer = &ui_tree->tree_stack[l+1];
@@ -70,8 +50,15 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
             int is_layout_horizontal = (parent->layout_flags & 0x01) == LAYOUT_HORIZONTAL;
             
             NU_Reset_Node_size(parent);
-            parent->width = 50;
-            parent->height = 50;
+
+            if (parent->tag == WINDOW)
+            {
+                int window_width, window_height;
+                SDL_GetWindowSize(SDL_GetRenderWindow(parent->renderer), &window_width, &window_height);
+                parent->width = (float) window_width;
+                parent->height = (float) window_height;
+            }
+
 
             // If parent is window node and has no SDL window assigned to it
             if (parent->tag == WINDOW && parent->renderer == NULL)
@@ -85,8 +72,6 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
                 continue; // Skip acummulating child sizes (no children)
             }
             
-            parent->width = 0;
-            parent->height = 0;
 
             // Track the total width and height for the parent's content
             float contentWidth = 0;
@@ -97,7 +82,7 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
             {
                 struct Node* child = Vector_Get(child_layer, i);
 
-                // Inherit window and renderer from parent
+                // Inherit renderer from parent
                 if (child->tag != WINDOW && child->renderer == NULL)
                 {
                     child->renderer = parent->renderer;
@@ -105,33 +90,32 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
 
                 if (child->tag == WINDOW)
                 {
-                    if (is_layout_horizontal) contentWidth -= parent->gap;
-                    if (!is_layout_horizontal) contentHeight -= parent->gap;
-                }
+                    if (is_layout_horizontal) contentWidth -= parent->gap + child->width;
+                    if (!is_layout_horizontal) contentHeight -= parent->gap + child->height;
+                }   
 
-                // Horizontal Layout
-                if (is_layout_horizontal)
+                // Dont' accumulate if parent is a window
+                if (parent->tag != WINDOW)
                 {
-                    contentWidth += child->width;
-                    contentHeight = MAX(contentHeight, child->height);
-                }
+                    if (is_layout_horizontal) // Horizontal Layout
+                    {
+                        contentWidth += child->width;
+                        contentHeight = MAX(contentHeight, child->height);
+                    }
 
-                // Vertical Layout
-                if (!is_layout_horizontal)
-                {
-                    contentHeight += child->height;
-                    contentWidth = MAX(contentWidth, child->width);
+                    if (!is_layout_horizontal) // Vertical Layout
+                    {
+                        contentHeight += child->height;
+                        contentWidth = MAX(contentWidth, child->width);
+                    }
                 }
             }
 
-            if (parent->tag != NAT)
+            // Grow parent node
+            if (parent->tag != WINDOW)
             {
-                // Horizontal Layout
-                if (is_layout_horizontal) contentWidth += (parent->child_count) * parent->gap;
-
-                // Vertical layout
-                if (!is_layout_horizontal) contentHeight += (parent->child_count) * parent->gap;
-
+                if (is_layout_horizontal) contentWidth += (parent->child_count - 1) * parent->gap;
+                if (!is_layout_horizontal) contentHeight += (parent->child_count - 1) * parent->gap;
                 parent->width = contentWidth + parent->border_left + parent->border_right + parent->pad_left + parent->pad_right;
                 parent->height = contentHeight + parent->border_top + parent->border_bottom + parent->pad_top + parent->pad_bottom;
             }
@@ -139,11 +123,16 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
     }
 }
 
+void NU_Calcualte_Overflow(struct UI_Tree* ui_tree)
+{
+
+}
+
 void NU_Grow_Child_Nodes_H(struct Node* parent, struct Vector* child_layer)
 {
-    float remaining_width = parent->width;
+    float remaining_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right;
 
-    if (!(parent->layout_flags & LAYOUT_HORIZONTAL))
+    if (parent->layout_flags & LAYOUT_VERTICAL)
     {   
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
@@ -195,7 +184,7 @@ void NU_Grow_Child_Nodes_H(struct Node* parent, struct Vector* child_layer)
 
 void NU_Grow_Child_Nodes_V(struct Node* parent, struct Vector* child_layer)
 {
-    float remaining_height = parent->height;
+    float remaining_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom;
 
     if (parent->layout_flags & LAYOUT_HORIZONTAL)
     {
@@ -218,7 +207,7 @@ void NU_Grow_Child_Nodes_V(struct Node* parent, struct Vector* child_layer)
             else remaining_height -= child->height;
         }
 
-        remaining_height-= (parent->child_count - 1) * parent->gap;
+        remaining_height -= (parent->child_count - 1) * parent->gap;
 
         if (remaining_height <= 0) return;
 
@@ -297,8 +286,8 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
 
     if (ui_tree->deepest_layer > 0)
     {
-        // Iterate over each layer excluding the first and last
-        for (int l=1; l<=ui_tree->deepest_layer; l++)
+        // Iterate over each layer
+        for (int l=0; l<=ui_tree->deepest_layer; l++)
         {
             int buffer_in_use = l % 2; // Alternate between the two buffers
 
@@ -329,7 +318,9 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
                 {
                     node->x = cursor->x + node->border_left;
                     node->y = cursor->y + node->border_top;
-                    cursor->y += node->height + cursor->gap;
+                    
+                    if (cursor->is_vertical) cursor->y += node->height + cursor->gap;
+                    else cursor->x += node->width + cursor->gap;
                 }
 
                 if (l != ui_tree->deepest_layer)
@@ -339,6 +330,7 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
                     new_cursor.x = node->x + node->pad_left;
                     new_cursor.y = node->y + node->pad_top;
                     new_cursor.gap = node->gap;
+                    new_cursor.is_vertical = node->layout_flags & LAYOUT_VERTICAL;
 
                     // Add new node cursor
                     if (buffer_in_use == 0) 
@@ -360,15 +352,16 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
 
 void NU_Draw_Node(struct Node* node)
 {
-    if (node->tag == WINDOW) return;
-
     SDL_FRect rect; 
-    rect.x = node->x;
-    rect.y = node->y;
-    rect.w = node->width;
-    rect.h = node->height;
+    float x = node->x;
+    float y = node->y;
+    float w = node->width;
+    float h = node->height;
 
-    // printf("%s %d %s %f %f %f %f %s \n", "node tag", node->tag, "position: {", rect.x, rect.y, rect.w, rect.h, "}");
+    rect.x = x;
+    rect.y = y;
+    rect.w = w;
+    rect.h = h;
 
     // SET RECT COLOUR
     if (node->tag == RECT)
@@ -379,14 +372,50 @@ void NU_Draw_Node(struct Node* node)
     {
         SDL_SetRenderDrawColor(node->renderer, 20, 255, 120, 255);
     }
+    else if (node->tag == WINDOW)
+    {
+        SDL_SetRenderDrawColor(node->renderer, 60, 30, 255, 255);
+    }
     else
     {
         SDL_SetRenderDrawColor(node->renderer, 100, 150, 120, 255);
     }
     
 
-    // RENDER RECT
+    // Render Rect
     SDL_RenderFillRect(node->renderer, &rect);
+
+    SDL_FColor col = {
+        // (float)node->border_r / 255.0f,
+        // (float)node->border_g / 255.0f,
+        // (float)node->border_b / 255.0f,
+        // (float)node->border_a / 255.0f
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f
+    };
+
+    // Construct Border
+    SDL_Vertex verts[8] = {
+        { .position = {x, y}, .color = col, .tex_coord = {0, 0} },
+        { .position = {x+w, y}, .color = col, .tex_coord = {0, 0} },
+        { .position = {x+node->border_left, y+node->border_top}, .color = col, .tex_coord = {0, 0} },
+        { .position = {x+w - node->border_right, y+node->border_top}, .color = col, .tex_coord = {0, 0}},
+        { .position = {x, y+h}, .color = col, .tex_coord = {0, 0}},
+        { .position = {x+w, y+h}, .color = col, .tex_coord = {0, 0}},
+        { .position = {x+node->border_left, y+h-node->border_bottom}, .color = col, .tex_coord = {0, 0}},
+        { .position = {x+w-node->border_right, y+h-node->border_bottom}, .color = col, .tex_coord = {0, 0}},
+    };
+
+    int indices[] = {
+        0, 1, 2, 2, 1, 3,      // top border
+        1, 5, 7, 1, 7, 3,      // right border
+        4, 6, 7, 4, 7, 5,      // bottom border
+        4, 0, 6, 0, 2, 6       // left border
+    };
+
+    SDL_RenderGeometry(node->renderer, NULL, verts, 8, indices, 24);
 }
 
 void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* renderers)
@@ -419,3 +448,31 @@ void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* r
         SDL_RenderPresent(renderer);
     }
 }
+
+
+
+
+// Window resize event handling -----------------------------------------
+
+struct NU_Watcher_Data {
+    struct UI_Tree* ui_tree;
+    struct Vector* windows;
+    struct Vector* renderers;
+};
+
+
+bool ResizingEventWatcher(void* data, SDL_Event* event) 
+{
+    struct NU_Watcher_Data* wd = (struct NU_Watcher_Data*)data;
+
+    if (event->type == SDL_EVENT_WINDOW_RESIZED) 
+    {
+        NU_Calculate_Sizes(wd->ui_tree, wd->windows, wd->renderers);
+        NU_Grow_Nodes(wd->ui_tree);
+        NU_Calculate_Positions(wd->ui_tree);
+        NU_Render(wd->ui_tree, wd->windows, wd->renderers);
+    }
+    return true;
+}
+
+// Window resize event handling -----------------------------------------

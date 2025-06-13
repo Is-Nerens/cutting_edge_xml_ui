@@ -39,7 +39,7 @@ int main()
     start_measurement();
 
     // Parse xml into UI tree
-    if (NU_Parse("tiny.xml", &ui_tree) != 0)
+    if (NU_Parse("test.xml", &ui_tree) != 0)
     {
         return -1;
     }
@@ -62,6 +62,14 @@ int main()
     Vector_Reserve(&renderers, sizeof(SDL_Renderer*), 8);
 
     printf("%s %zu\n", "node bytes:", sizeof(struct Node));
+
+    struct NU_Watcher_Data watcher_data = {
+        .ui_tree = &ui_tree,
+        .windows = &windows,
+        .renderers = &renderers
+    };
+
+    SDL_AddEventWatch(ResizingEventWatcher, &watcher_data);
     
     // Application loop
     int isRunning = 1;
@@ -70,13 +78,14 @@ int main()
         isRunning = ProcessWindowEvents();
         // Calculate element positions
         timer_start();
-        start_measurement();
+        // start_measurement();
         NU_Calculate_Sizes(&ui_tree, &windows, &renderers);
+        // NU_Calculate_Overflow(&ui_tree);
         NU_Grow_Nodes(&ui_tree);
         NU_Calculate_Positions(&ui_tree);
-        // NU_Render(&ui_tree, &windows, &renderers);
+        NU_Render(&ui_tree, &windows, &renderers);
 
-        end_measurement();
+        // end_measurement();
         timer_stop();
     }
 
