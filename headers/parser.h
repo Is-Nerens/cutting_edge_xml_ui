@@ -46,6 +46,7 @@ enum NU_Token
     CLOSE_END_TAG,
     PROPERTY_ASSIGNMENT,
     PROPERTY_VALUE,
+    TEXT_CONTENT,
     UNDEFINED
 };
 
@@ -68,6 +69,7 @@ enum Tag
 struct Node
 {
     SDL_Renderer* renderer;
+    uint32_t ID;
     enum Tag tag;
     float x, y, width, height, gap;
     int parent_index;
@@ -91,6 +93,7 @@ struct Property_Text_Ref
 
 struct Text_Ref
 {
+    uint32_t node_ID;
     uint32_t buffer_index;
     uint32_t char_count;
     uint32_t char_capacity;
@@ -114,6 +117,7 @@ struct UI_Tree
     struct Vector tree_stack[MAX_TREE_DEPTH];
     struct Text_Arena text_arena;
     uint16_t deepest_layer;
+    TTF_Font* font;
 };
 
 // Structs ---------------------- //
@@ -193,6 +197,10 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
                 new_ref.char_capacity = text_char_count;
                 new_ref.buffer_index = text_arena_buffer_index;
                 Vector_Push(&text_arena->text_refs, &new_ref);
+
+                // Add text content token
+                enum NU_Token t = TEXT_CONTENT;
+                Vector_Push(NU_Token_vector, &t);
             }
             text_char_count = 0;
 
@@ -215,6 +223,10 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
                 new_ref.char_capacity = text_char_count;
                 new_ref.buffer_index = text_arena_buffer_index;
                 Vector_Push(&text_arena->text_refs, &new_ref);
+
+                // Add text content token
+                enum NU_Token t = TEXT_CONTENT;
+                Vector_Push(NU_Token_vector, &t);
             }
             text_char_count = 0;
 
@@ -435,11 +447,15 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
     struct Property_Text_Ref* current_property_text;
     if (ptext_ref_vector->size > 0) current_property_text = Vector_Get(ptext_ref_vector, property_text_index);
 
+    // Get first text content reference
+    uint32_t text_content_ref_index = 0;
+
     // Iterate over all NU_Tokens
     int i = 0;
     int current_layer = -1;
     ui_tree->deepest_layer = 0;
     struct Node* current_node = (struct Node*) Vector_Get(&ui_tree->tree_stack[0], 0);
+    uint32_t current_node_ID = 0;
     while (i < NU_Token_vector->size - 3)
     {
         const enum NU_Token NU_Token = *((enum NU_Token*) Vector_Get(NU_Token_vector, i));
@@ -457,24 +473,26 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 }
 
                 // Create a new node
-                struct Node newNode;
-                newNode.tag = NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(NU_Token_vector, i+1)));
-                newNode.renderer = NULL; 
-                newNode.child_count = 0;
-                newNode.first_child_index = -1;
-                newNode.layout_flags = 0;
-                newNode.parent_index = ui_tree->tree_stack[current_layer].size - 1; 
+                struct Node new_node;
+                current_node_ID = ((uint32_t) (current_layer + 1) << 24) | (ui_tree->tree_stack[current_layer+1].size & 0xFFFFFF); // Max depth = 256, Max node index = 16,777,215
+                new_node.ID = current_node_ID;
+                new_node.tag = NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(NU_Token_vector, i+1)));
+                new_node.renderer = NULL; 
+                new_node.child_count = 0;
+                new_node.first_child_index = -1;
+                new_node.layout_flags = 0;
+                new_node.parent_index = ui_tree->tree_stack[current_layer].size - 1; 
 
                 // Add node to tree
                 struct Vector* node_layer = &ui_tree->tree_stack[current_layer+1];
-                Vector_Push(node_layer, &newNode);
+                Vector_Push(node_layer, &new_node);
                 current_node = (struct Node*) Vector_Get(node_layer, node_layer->size -1);
 
 
                 if (current_layer != -1) // Only equals -1 for the root window node (optimisation would be to remove this check and append root node at beggining of function)
                 {
                     // Inform parent that parent has new child
-                    struct Node* parentNode = (struct Node*) Vector_Get(&ui_tree->tree_stack[current_layer], newNode.parent_index);
+                    struct Node* parentNode = (struct Node*) Vector_Get(&ui_tree->tree_stack[current_layer], new_node.parent_index);
                     if (parentNode->child_count == 0)
                     {
                         parentNode->first_child_index = ui_tree->tree_stack[current_layer+1].size - 1;
@@ -525,6 +543,18 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
         {
             // Move one layer higher
             current_layer--;
+
+            // Increment NU_Token
+            i+=1;
+            continue;
+        }
+
+        // Text content
+        if (NU_Token == TEXT_CONTENT)
+        {
+            struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, text_content_ref_index);
+            text_ref->node_ID = current_node_ID;
+            text_content_ref_index += 1;
 
             // Increment NU_Token
             i+=1;

@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <SDL3/SDL.h>
+#include <SDL_ttf/SDL_ttf.h>
 #include "headers/parser.h"
 #include "headers/layout.h"
 
@@ -53,6 +54,17 @@ int main()
         return -1;
     }
 
+    // Initialize SDL_ttf
+    if (!TTF_Init()) {
+        printf("SDL TTF could not initialize!");
+        return -1;
+    }
+
+    // Load a default font
+    TTF_Font* font = TTF_OpenFont("JacquesFrancois-Regular.ttf", 22);
+    if (!font) printf("Could not find font file");
+    ui_tree.font = font;
+
     // Create a vector of window pointers and store main window
     struct Vector windows;
     Vector_Reserve(&windows, sizeof(SDL_Window*), 8);
@@ -79,6 +91,8 @@ int main()
         // Calculate element positions
         timer_start();
         // start_measurement();
+        NU_Clear_Node_Sizes(&ui_tree);
+        NU_Calculate_Text_Fit_Sizes(&ui_tree);
         NU_Calculate_Sizes(&ui_tree, &windows, &renderers);
         // NU_Calculate_Overflow(&ui_tree);
         NU_Grow_Nodes(&ui_tree);
@@ -93,4 +107,8 @@ int main()
     NU_Free_UI_Tree_Memory(&ui_tree);
     Vector_Free(&windows);
     Vector_Free(&renderers);
+
+    // Close SDL
+    TTF_Quit();
+    SDL_Quit();
 }

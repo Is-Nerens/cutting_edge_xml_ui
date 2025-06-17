@@ -1,5 +1,7 @@
 #include <SDL3/SDL.h>
+#include <SDL_ttf/SDL_ttf.h>
 #include <stdbool.h>
+#include <math.h>
 
 struct NU_Cursor
 {
@@ -18,26 +20,69 @@ void NU_Create_New_Window(struct Node* window_node, struct Vector* windows, stru
 
 void NU_Reset_Node_size(struct Node* node)
 {
-    node->width = 0;
-    node->height = 0;
-    node->border_left = 2;
-    node->border_right = 2;
-    node->border_top = 2;
-    node->border_bottom = 2;
-    node->pad_left = 4;
-    node->pad_right = 4;
-    node->pad_top = 4;
-    node->pad_bottom = 4;
-    node->gap = 0.0f;
-    node->width = 50;
-    node->height = 50;
+    node->border_left = 5;
+    node->border_right = 5;
+    node->border_top = 5;
+    node->border_bottom = 5;
+    node->pad_left = 3;
+    node->pad_right = 3;
+    node->pad_top = 3;
+    node->pad_bottom = 3;
+    node->width = node->border_left + node->border_right + node->pad_left + node->pad_right;
+    node->height = node->border_top + node->border_bottom + node->pad_top + node->pad_bottom;
+    node->gap = 2.0f;
+}
+
+void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree)
+{
+    // For each layer
+    for (int l=0; l<=ui_tree->deepest_layer; l++)
+    {
+        struct Vector* layer = &ui_tree->tree_stack[l];
+        
+        // Draw all nodes in layer
+        for (int n=0; n<layer->size; n++)
+        {   
+            struct Node* node = Vector_Get(layer, n);
+            NU_Reset_Node_size(node);
+        }
+    }
+}
+
+void NU_Calculate_Text_Fit_Size(struct UI_Tree* ui_tree, struct Node* node, struct Text_Ref* text_ref)
+{
+    // Extract pointer to text
+    char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
+
+    int width = 0, height = 0;
+    TTF_GetStringSize(ui_tree->font, text, text_ref->char_count, &width, &height);
+
+    // Apply size
+    node->width += (float) width;
+    node->height += (float) height;
+}
+void NU_Calculate_Text_Fit_Sizes(struct UI_Tree* ui_tree)
+{
+    for (uint32_t i=0; i<ui_tree->text_arena.text_refs.size; i++)
+    {
+        struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, i);
+        
+        // Get the corresponding node
+        uint8_t node_depth = (uint8_t)(text_ref->node_ID >> 24);
+        uint32_t node_index = text_ref->node_ID & 0x00FFFFFF;
+        struct Vector* layer = &ui_tree->tree_stack[node_depth];
+        struct Node* node = Vector_Get(layer, node_index);
+
+        // Calculate text size
+        NU_Calculate_Text_Fit_Size(ui_tree, node, text_ref);
+    }
 }
 
 void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* renderers)
 {   
     if (ui_tree->deepest_layer == 0) return;
 
-    // For each layer exluding the deepest
+    // For each layer
     for (int l=ui_tree->deepest_layer; l>=0; l--)
     {
         struct Vector* parent_layer = &ui_tree->tree_stack[l];
@@ -48,8 +93,6 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
         {   
             struct Node* parent = Vector_Get(parent_layer, p);
             int is_layout_horizontal = (parent->layout_flags & 0x01) == LAYOUT_HORIZONTAL;
-            
-            NU_Reset_Node_size(parent);
 
             if (parent->tag == WINDOW)
             {
@@ -418,6 +461,28 @@ void NU_Draw_Node(struct Node* node)
     SDL_RenderGeometry(node->renderer, NULL, verts, 8, indices, 24);
 }
 
+void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text)
+{
+    SDL_Color textCol = { 40, 40, 255, 255 };
+    SDL_Surface *text_surface = TTF_RenderText_Blended(ui_tree->font, text, strlen(text), textCol);
+    SDL_Texture *text_texture = SDL_CreateTextureFromSurface(node->renderer, text_surface);  
+    SDL_SetTextureBlendMode(text_texture, SDL_BLENDMODE_BLEND);
+    float textWidth = (float) (text_surface->w);
+    float textHeight = (float) (text_surface->h);
+    float half_rem_inner_width = (node->width - node->border_left - node->border_right - textWidth) * 0.5f;
+    float half_rem_inner_height = (node->height - node->border_top - node->border_bottom - textHeight) * 0.5f;
+    float textPosX = round(node->x + node->border_left + half_rem_inner_width);
+    float textPosY = round(node->y + node->border_top + half_rem_inner_height);
+    SDL_FRect text_rect; 
+    text_rect.x = textPosX;
+    text_rect.y = textPosY;
+    text_rect.w = textWidth;
+    text_rect.h = textHeight;
+    SDL_RenderTexture(node->renderer, text_texture, NULL, &text_rect);  
+    SDL_DestroyTexture(text_texture);
+    SDL_DestroySurface(text_surface);
+}
+
 void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* renderers)
 {
     // Clear window images
@@ -427,6 +492,9 @@ void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* r
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);  
         SDL_RenderClear(renderer);
     }
+
+    uint32_t current_text_ref_index = 0;
+    struct Text_Ref* current_text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, 0);
         
     // For each layer
     for (int l=0; l<=ui_tree->deepest_layer; l++)
@@ -438,6 +506,26 @@ void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* r
         {   
             struct Node* node = Vector_Get(layer, n);
             NU_Draw_Node(node);
+
+
+            if (node->ID == current_text_ref->node_ID)
+            {
+                // Extract pointer to text
+                char* buffer = (char*)ui_tree->text_arena.char_buffer.data;
+                char* start = buffer + current_text_ref->buffer_index;
+
+                // Allocate a temporary null-terminated string
+                char* text = malloc(current_text_ref->char_count + 1);
+                memcpy(text, start, current_text_ref->char_count);
+                text[current_text_ref->char_count] = '\0';
+
+                NU_Draw_Node_Text(ui_tree, node, text);
+                free(text); 
+
+                // Increment text reference
+                current_text_ref_index += 1;
+                current_text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, current_text_ref_index);
+            }
         }
     }
 

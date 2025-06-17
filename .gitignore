@@ -1,3 +1,6 @@
 *.exe
 *.xml
+*.ttf
+*.txt
 *lib/SDL3/*
+*lib/SDL3_ttf/*
