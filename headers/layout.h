@@ -27,7 +27,7 @@ void NU_Create_New_Window(struct UI_Tree* ui_tree, struct Node* window_node, str
     glewInit();
     
 
-    NVGcontext* new_nano_vg_context = nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
+    NVGcontext* new_nano_vg_context = nvgCreateGL3(NVG_STENCIL_STROKES);
     struct Vector font_registry;
     Vector_Reserve(&font_registry, sizeof(int), 8);
     for (int i=0; i<ui_tree->font_resources.size; i++)
@@ -526,7 +526,7 @@ void NU_Draw_Node(struct Node* node, NVGcontext* vg)
     switch(node->tag)
     {
         case RECT:   fillColor = nvgRGB(120, 100, 100); break;
-        case BUTTON: fillColor = nvgRGB(200, 200, 200); break;
+        case BUTTON: fillColor = nvgRGB(50, 50, 50); break;
         case WINDOW: fillColor = nvgRGB(60, 30, 255); break;
         default:     fillColor = nvgRGB(100, 150, 120); break;
     }
@@ -538,7 +538,7 @@ void NU_Draw_Node(struct Node* node, NVGcontext* vg)
 
     // Optional: draw border
     NVGcolor borderColor = nvgRGBA(node->border_r, node->border_g, node->border_b, node->border_a);
-    nvgStrokeColor(vg, borderColor);
+    nvgStrokeColor(vg, nvgRGBA(0, 0, 0, 255));
     nvgStrokeWidth(vg, 1.0f);
     nvgStroke(vg);
 
@@ -564,7 +564,7 @@ void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text,NV
     nvgFontFaceId(node->vg, fontID);   
     nvgFontSize(node->vg, 18);
 
-    nvgFillColor(vg, nvgRGB(1,0,0));
+    nvgFillColor(vg, nvgRGB(255,255,255));
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 
     float inner_width  = node->width - node->border_left - node->border_right;
@@ -575,10 +575,10 @@ void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text,NV
     float textWidth = textBounds[2] - textBounds[0];
     float textHeight = textBounds[3] - textBounds[1];
 
-    float textPosX = roundf(node->x + node->border_left + inner_width*0.5f);
-    float textPosY = roundf(node->y + node->border_top + inner_height*0.5f);
+    float textPosX = node->x + node->border_left + inner_width*0.5f;
+    float textPosY = node->y + node->border_top + inner_height*0.5f;
 
-    nvgText(vg, textPosX, textPosY, text, NULL);
+    nvgText(vg, floorf(textPosX), floorf(textPosY), text, NULL);
 }
 
 void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
