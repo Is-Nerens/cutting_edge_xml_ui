@@ -6,6 +6,9 @@
         "parser.h": "c",
         "sdl.h": "c",
         "math.h": "c",
-        "sdl_ttf.h": "c"
+        "sdl_ttf.h": "c",
+        "performance.h": "c",
+        "nanovg.h": "c",
+        "layout.h": "c"
     }
 }

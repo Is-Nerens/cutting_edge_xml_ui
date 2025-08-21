@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <math.h>
 
+// UI layout ------------------------------------------------------------
 struct NU_Cursor
 {
     float x, y, gap;
@@ -12,7 +13,7 @@ struct NU_Cursor
 void NU_Create_New_Window(struct Node* window_node, struct Vector* windows, struct Vector* renderers)
 {
     SDL_Window* new_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_RESIZABLE);
-    SDL_Renderer* new_renderer = SDL_CreateRenderer(new_window, "direct3d");
+    SDL_Renderer* new_renderer = SDL_CreateRenderer(new_window, "opengl");
     Vector_Push(windows, &new_window);
     Vector_Push(renderers, &new_renderer);
     window_node->renderer = new_renderer;
@@ -20,17 +21,18 @@ void NU_Create_New_Window(struct Node* window_node, struct Vector* windows, stru
 
 void NU_Reset_Node_size(struct Node* node)
 {
-    node->border_left = 5;
-    node->border_right = 5;
-    node->border_top = 5;
-    node->border_bottom = 5;
-    node->pad_left = 3;
-    node->pad_right = 3;
-    node->pad_top = 3;
-    node->pad_bottom = 3;
-    node->width = node->border_left + node->border_right + node->pad_left + node->pad_right;
+    node->border_left = 1;
+    node->border_right = 1;
+    node->border_top = 1;
+    node->border_bottom = 1;
+    node->pad_left = 0;
+    node->pad_right = 0;
+    node->pad_top = 0;
+    node->pad_bottom = 0;
+    if (node->preferred_width == 0.0f) node->width = node->border_left + node->border_right + node->pad_left + node->pad_right;
+    else node->width = node->preferred_width;
     node->height = node->border_top + node->border_bottom + node->pad_top + node->pad_bottom;
-    node->gap = 2.0f;
+    node->gap = 0.0f;
 }
 
 void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree)
@@ -56,11 +58,14 @@ void NU_Calculate_Text_Fit_Size(struct UI_Tree* ui_tree, struct Node* node, stru
 
     int width = 0, height = 0;
     TTF_GetStringSize(ui_tree->font, text, text_ref->char_count, &width, &height);
+    width *= 0.5f;
+    height *= 0.5f;
 
     // Apply size
-    node->width += (float) width;
+    if (node->preferred_width == 0.0f) node->width += (float) width;
     node->height += (float) height;
 }
+
 void NU_Calculate_Text_Fit_Sizes(struct UI_Tree* ui_tree)
 {
     for (uint32_t i=0; i<ui_tree->text_arena.text_refs.size; i++)
@@ -115,10 +120,9 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
                 continue; // Skip acummulating child sizes (no children)
             }
             
-
             // Track the total width and height for the parent's content
-            float contentWidth = 0;
-            float contentHeight = 0;
+            float content_width = 0;
+            float content_height = 0;
 
             // Iterate over children
             for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
@@ -133,47 +137,43 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
 
                 if (child->tag == WINDOW)
                 {
-                    if (is_layout_horizontal) contentWidth -= parent->gap + child->width;
-                    if (!is_layout_horizontal) contentHeight -= parent->gap + child->height;
+                    if (is_layout_horizontal) content_width -= parent->gap + child->width;
+                    if (!is_layout_horizontal) content_height -= parent->gap + child->height;
                 }   
 
                 // Dont' accumulate if parent is a window
-                if (parent->tag != WINDOW)
+                if (is_layout_horizontal) // Horizontal Layout
                 {
-                    if (is_layout_horizontal) // Horizontal Layout
-                    {
-                        contentWidth += child->width;
-                        contentHeight = MAX(contentHeight, child->height);
-                    }
+                    content_width += child->width;
+                    content_height = MAX(content_height, child->height);
+                }
 
-                    if (!is_layout_horizontal) // Vertical Layout
-                    {
-                        contentHeight += child->height;
-                        contentWidth = MAX(contentWidth, child->width);
-                    }
+                if (!is_layout_horizontal) // Vertical Layout
+                {
+                    content_height += child->height;
+                    content_width = MAX(content_width, child->width);
                 }
             }
 
             // Grow parent node
+            
+            if (is_layout_horizontal) content_width += (parent->child_count - 1) * parent->gap;
+            if (!is_layout_horizontal) content_height += (parent->child_count - 1) * parent->gap;
+            parent->content_width = content_width;
+            parent->content_height = content_height;
+
             if (parent->tag != WINDOW)
             {
-                if (is_layout_horizontal) contentWidth += (parent->child_count - 1) * parent->gap;
-                if (!is_layout_horizontal) contentHeight += (parent->child_count - 1) * parent->gap;
-                parent->width = contentWidth + parent->border_left + parent->border_right + parent->pad_left + parent->pad_right;
-                parent->height = contentHeight + parent->border_top + parent->border_bottom + parent->pad_top + parent->pad_bottom;
+                parent->width = content_width + parent->border_left + parent->border_right + parent->pad_left + parent->pad_right;
+                parent->height = content_height + parent->border_top + parent->border_bottom + parent->pad_top + parent->pad_bottom;
             }
         }
     }
 }
 
-void NU_Calcualte_Overflow(struct UI_Tree* ui_tree)
-{
-
-}
-
 void NU_Grow_Child_Nodes_H(struct Node* parent, struct Vector* child_layer)
 {
-    float remaining_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right;
+    float remaining_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right - ((parent->layout_flags & OVERFLOW_VERTICAL_SCROLL) != 0) * 12.0f;
 
     if (parent->layout_flags & LAYOUT_VERTICAL)
     {   
@@ -182,99 +182,173 @@ void NU_Grow_Child_Nodes_H(struct Node* parent, struct Vector* child_layer)
             struct Node* child = Vector_Get(child_layer, i);
             if (child->layout_flags & GROW_HORIZONTAL)
             {
-                float rem_width = remaining_width - child->width;
-                child->width += rem_width; 
+                child->width = remaining_width; 
             }
         }
     }
     else
     {
+        uint32_t growable_count = 0;
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
             if (child->tag == WINDOW) remaining_width += parent->gap;
             else remaining_width -= child->width;
+            if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW) growable_count++;
         }
 
         remaining_width -= (parent->child_count - 1) * parent->gap;
 
-        if (remaining_width <= 0) return;
-
-        // Count growable elements
-        uint32_t growable_count = 0;
-        for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
-        {
-            struct Node* child = Vector_Get(child_layer, i);
-            if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW) growable_count += 1;
-        }
-
         if (growable_count == 0) return;
 
-        float growth_per_element = remaining_width / (float) growable_count;
-
-        // Grow child elements
-        for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        while (remaining_width > 0.1f)
         {
-            struct Node* child = Vector_Get(child_layer, i);
-            if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW)
+            float smallest = 1e20f;
+            for (int i = parent->first_child_index; i < parent->first_child_index + parent->child_count; i++) 
             {
-                child->width += growth_per_element;
-                child->width = roundf(child->width);
+                struct Node* child = Vector_Get(child_layer, i);
+                if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW) 
+                {
+                    smallest = child->width;
+                    break;
+                }
             }
+            float second_smallest = 1e200;
+            float width_to_add = remaining_width;
+
+            // for each child
+            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) 
+            {
+                struct Node* child = Vector_Get(child_layer, i);
+                
+                // if child is growable
+                if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW) 
+                {
+                    if (child->width < smallest)
+                    {
+                        second_smallest = smallest;
+                        smallest = child->width;
+                    }
+                    if (child->width > smallest)
+                    {
+                        second_smallest = min(child->width, second_smallest);
+                        width_to_add = second_smallest - smallest;
+                    }
+                }
+            }
+
+            width_to_add = min(width_to_add, remaining_width / growable_count);
+
+            bool added_any = false;
+
+            // for each child
+            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) 
+            {
+                struct Node* child = Vector_Get(child_layer, i);
+            
+                // if child is growable
+                if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW) 
+                {
+                    if (child->width == smallest)
+                    {
+                        child->width += width_to_add;
+                        remaining_width -= width_to_add;
+                        added_any = true;
+                    }
+                }
+            }
+
+            if (!added_any) break;
         }
     }
 }
 
 void NU_Grow_Child_Nodes_V(struct Node* parent, struct Vector* child_layer)
 {
-    float remaining_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom;
+    float remaining_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom - ((parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL) != 0) * 12.0f;
 
-    if (parent->layout_flags & LAYOUT_HORIZONTAL)
+    if (!(parent->layout_flags & LAYOUT_VERTICAL))
     {
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
             if (child->layout_flags & GROW_VERTICAL)
             {
-                float rem_height = remaining_height - child->height;
-                child->height += rem_height; 
+                child->height = remaining_height; 
             }
         }
     }
     else
     {
+        uint32_t growable_count = 0;
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
             if (child->tag == WINDOW) remaining_height += parent->gap;
             else remaining_height -= child->height;
-        }
-
-        remaining_height -= (parent->child_count - 1) * parent->gap;
-
-        if (remaining_height <= 0) return;
-
-        // Count growable elements
-        uint32_t growable_count = 0;
-        for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
-        {
-            struct Node* child = Vector_Get(child_layer, i);
-            if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW) growable_count += 1;
+            if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW) growable_count++;
         }
 
         if (growable_count == 0) return;
 
-        float growth_per_element = remaining_height / (float) growable_count;
-
-        // Grow child elements
-        for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        while (remaining_height > 0.1f)
         {
-            struct Node* child = Vector_Get(child_layer, i);
-            if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW)
+            float smallest = 1e20f;
+            for (int i = parent->first_child_index; i < parent->first_child_index + parent->child_count; i++) 
             {
-                child->height += growth_per_element;
-                child->height = roundf(child->height);
+                struct Node* child = Vector_Get(child_layer, i);
+                if ((child->layout_flags & GROW_VERTICAL) && child->tag != WINDOW) 
+                {
+                    smallest = child->height;
+                    break;
+                }
             }
+            float second_smallest = 1e200;
+            float height_to_add = remaining_height;
+
+            // for each child
+            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) 
+            {
+                struct Node* child = Vector_Get(child_layer, i);
+                
+                // if child is growable
+                if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW) 
+                {
+                    if (child->height < smallest)
+                    {
+                        second_smallest = smallest;
+                        smallest = child->height;
+                    }
+                    if (child->height > smallest)
+                    {
+                        second_smallest = min(child->height, second_smallest);
+                        height_to_add = second_smallest - smallest;
+                    }
+                }
+            }
+
+            height_to_add = min(height_to_add, remaining_height / growable_count);
+
+            bool added_any = false;
+
+            // for each child
+            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) 
+            {
+                struct Node* child = Vector_Get(child_layer, i);
+            
+                // if child is growable
+                if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW) 
+                {
+                    if (child->height == smallest)
+                    {
+                        child->height += height_to_add;
+                        remaining_height -= height_to_add;
+                        added_any = true;
+                    }
+                }
+            }
+
+            if (!added_any) break;
         }
     }
 }
@@ -392,28 +466,58 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
     Vector_Free(&cursor_buffer_0);
     Vector_Free(&cursor_buffer_1);
 }
+// UI layout ------------------------------------------------------------
 
+
+
+// UI rendering ---------------------------------------------------------
 void NU_Draw_Node(struct Node* node)
 {
+    float inner_width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
+    float inner_height = node->height - node->border_top - node->border_bottom - node->pad_top - node->pad_bottom;
+    
     SDL_FRect rect; 
-    float x = node->x;
-    float y = node->y;
-    float w = node->width;
-    float h = node->height;
+    rect.x = node->x;
+    rect.y = node->y;
+    rect.w = node->width;
+    rect.h = node->height;
 
-    rect.x = x;
-    rect.y = y;
-    rect.w = w;
-    rect.h = h;
+    if (node->content_height > inner_height && node->layout_flags & OVERFLOW_VERTICAL_SCROLL)
+    {
+        rect.w -= 12;
+
+        // Draw horizontal scroll bar
+        SDL_FRect scroll_rect;
+        scroll_rect.x = rect.x + rect.w - node->border_right;
+        scroll_rect.y = rect.y;
+        scroll_rect.w = 12;
+        scroll_rect.h = rect.h - node->border_bottom;
+        SDL_SetRenderDrawColor(node->renderer, 255, 255, 255, 255);
+        SDL_RenderFillRect(node->renderer, &scroll_rect);
+    }
+
+    if (node->content_width > inner_width && node->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)
+    {
+        rect.h -= 12;
+
+        // Draw horizontal scroll bar
+        SDL_FRect scroll_rect;
+        scroll_rect.x = rect.x;
+        scroll_rect.y = rect.y + rect.h - node->border_bottom;
+        scroll_rect.w = rect.w - node->border_right;
+        scroll_rect.h = 12;
+        SDL_SetRenderDrawColor(node->renderer, 255, 255, 255, 255);
+        SDL_RenderFillRect(node->renderer, &scroll_rect);
+    }
 
     // SET RECT COLOUR
     if (node->tag == RECT)
     {
-        SDL_SetRenderDrawColor(node->renderer, 255, 100, 0, 255);
+        SDL_SetRenderDrawColor(node->renderer, 120, 100, 100, 255);
     }
     else if (node->tag == BUTTON)
     {
-        SDL_SetRenderDrawColor(node->renderer, 20, 255, 120, 255);
+        SDL_SetRenderDrawColor(node->renderer, 200, 200, 200, 255);
     }
     else if (node->tag == WINDOW)
     {
@@ -441,14 +545,14 @@ void NU_Draw_Node(struct Node* node)
 
     // Construct Border
     SDL_Vertex verts[8] = {
-        { .position = {x, y}, .color = col, .tex_coord = {0, 0} },
-        { .position = {x+w, y}, .color = col, .tex_coord = {0, 0} },
-        { .position = {x+node->border_left, y+node->border_top}, .color = col, .tex_coord = {0, 0} },
-        { .position = {x+w - node->border_right, y+node->border_top}, .color = col, .tex_coord = {0, 0}},
-        { .position = {x, y+h}, .color = col, .tex_coord = {0, 0}},
-        { .position = {x+w, y+h}, .color = col, .tex_coord = {0, 0}},
-        { .position = {x+node->border_left, y+h-node->border_bottom}, .color = col, .tex_coord = {0, 0}},
-        { .position = {x+w-node->border_right, y+h-node->border_bottom}, .color = col, .tex_coord = {0, 0}},
+        { .position = {rect.x, rect.y}, .color = col, .tex_coord = {0, 0} },
+        { .position = {rect.x + rect.w, rect.y}, .color = col, .tex_coord = {0, 0} },
+        { .position = {rect.x + node->border_left, rect.y + node->border_top}, .color = col, .tex_coord = {0, 0} },
+        { .position = {rect.x + rect.w - node->border_right, rect.y + node->border_top}, .color = col, .tex_coord = {0, 0}},
+        { .position = {rect.x, rect.y + rect.h}, .color = col, .tex_coord = {0, 0}},
+        { .position = {rect.x + rect.w, rect.y + rect.h}, .color = col, .tex_coord = {0, 0}},
+        { .position = {rect.x + node->border_left, rect.y + rect.h - node->border_bottom}, .color = col, .tex_coord = {0, 0}},
+        { .position = {rect.x + rect.w - node->border_right, rect.y + rect.h - node->border_bottom}, .color = col, .tex_coord = {0, 0}},
     };
 
     int indices[] = {
@@ -463,16 +567,17 @@ void NU_Draw_Node(struct Node* node)
 
 void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text)
 {
-    SDL_Color textCol = { 40, 40, 255, 255 };
-    SDL_Surface *text_surface = TTF_RenderText_Blended(ui_tree->font, text, strlen(text), textCol);
+    SDL_Color textCol = { 0, 0, 0, 255 };
+    SDL_Surface* text_surface = TTF_RenderText_Blended(ui_tree->font, text, strlen(text), textCol);
     SDL_Texture *text_texture = SDL_CreateTextureFromSurface(node->renderer, text_surface);  
     SDL_SetTextureBlendMode(text_texture, SDL_BLENDMODE_BLEND);
-    float textWidth = (float) (text_surface->w);
-    float textHeight = (float) (text_surface->h);
+    SDL_SetTextureScaleMode(text_texture, SDL_SCALEMODE_LINEAR);
+    float textWidth = (float) (text_surface->w) * 0.5f;
+    float textHeight = (float) (text_surface->h) * 0.5f;
     float half_rem_inner_width = (node->width - node->border_left - node->border_right - textWidth) * 0.5f;
     float half_rem_inner_height = (node->height - node->border_top - node->border_bottom - textHeight) * 0.5f;
-    float textPosX = round(node->x + node->border_left + half_rem_inner_width);
-    float textPosY = round(node->y + node->border_top + half_rem_inner_height);
+    float textPosX = node->x + node->border_left + half_rem_inner_width;
+    float textPosY = node->y + node->border_top + half_rem_inner_height;
     SDL_FRect text_rect; 
     text_rect.x = textPosX;
     text_rect.y = textPosY;
@@ -492,9 +597,6 @@ void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* r
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);  
         SDL_RenderClear(renderer);
     }
-
-    uint32_t current_text_ref_index = 0;
-    struct Text_Ref* current_text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, 0);
         
     // For each layer
     for (int l=0; l<=ui_tree->deepest_layer; l++)
@@ -507,24 +609,15 @@ void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* r
             struct Node* node = Vector_Get(layer, n);
             NU_Draw_Node(node);
 
-
-            if (node->ID == current_text_ref->node_ID)
+            if (node->text_ref_index != -1)
             {
+                struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, node->text_ref_index);
+                
                 // Extract pointer to text
-                char* buffer = (char*)ui_tree->text_arena.char_buffer.data;
-                char* start = buffer + current_text_ref->buffer_index;
-
-                // Allocate a temporary null-terminated string
-                char* text = malloc(current_text_ref->char_count + 1);
-                memcpy(text, start, current_text_ref->char_count);
-                text[current_text_ref->char_count] = '\0';
-
+                char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
+                if (text_ref->char_count != text_ref->char_capacity) text[text_ref->char_count] = '\0';
                 NU_Draw_Node_Text(ui_tree, node, text);
-                free(text); 
-
-                // Increment text reference
-                current_text_ref_index += 1;
-                current_text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, current_text_ref_index);
+                if (text_ref->char_count != text_ref->char_capacity) text[text_ref->char_count] = ' ';
             }
         }
     }
@@ -536,18 +629,16 @@ void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* r
         SDL_RenderPresent(renderer);
     }
 }
-
+// UI rendering ---------------------------------------------------------
 
 
 
 // Window resize event handling -----------------------------------------
-
 struct NU_Watcher_Data {
     struct UI_Tree* ui_tree;
     struct Vector* windows;
     struct Vector* renderers;
 };
-
 
 bool ResizingEventWatcher(void* data, SDL_Event* event) 
 {
@@ -555,6 +646,8 @@ bool ResizingEventWatcher(void* data, SDL_Event* event)
 
     if (event->type == SDL_EVENT_WINDOW_RESIZED) 
     {
+        NU_Clear_Node_Sizes(wd->ui_tree);
+        NU_Calculate_Text_Fit_Sizes(wd->ui_tree);
         NU_Calculate_Sizes(wd->ui_tree, wd->windows, wd->renderers);
         NU_Grow_Nodes(wd->ui_tree);
         NU_Calculate_Positions(wd->ui_tree);
@@ -562,5 +655,4 @@ bool ResizingEventWatcher(void* data, SDL_Event* event)
     }
     return true;
 }
-
 // Window resize event handling -----------------------------------------

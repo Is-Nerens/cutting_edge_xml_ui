@@ -1,9 +1,13 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MAX_TREE_DEPTH 32
-#define LAYOUT_HORIZONTAL 0x00
-#define LAYOUT_VERTICAL   0x01
-#define GROW_HORIZONTAL   0x02
-#define GROW_VERTICAL     0x04
+
+// Layout flag bits
+#define LAYOUT_HORIZONTAL            0x00        // 0b00000000
+#define LAYOUT_VERTICAL              0x01        // 0b00000001
+#define GROW_HORIZONTAL              0x02        // 0b00000010
+#define GROW_VERTICAL                0x04        // 0b00000100
+#define OVERFLOW_VERTICAL_SCROLL     0x08        // 0b00001000
+#define OVERFLOW_HORIZONTAL_SCROLL   0x10        // 0b00010000
 
 #include <stdint.h>
 #include <stdio.h>
@@ -16,6 +20,9 @@ const char* keywords[] = {
     "id",
     "dir",
     "grow",
+    "overflow_v",
+    "overflow_h",
+    "width",
     "window",
     "rect",
     "button",
@@ -23,17 +30,15 @@ const char* keywords[] = {
     "text",
     "image"
 };
-
-const uint8_t keyword_lengths[] = { 2, 3, 4, 6, 4, 6, 4, 4, 5 };
-
-
-// Enums ------------------------ //
-
+const uint8_t keyword_lengths[] = { 2, 3, 4, 10, 10, 5, 6, 4, 6, 4, 4, 5 };
 enum NU_Token
 {
     ID_PROPERTY,
     LAYOUT_DIRECTION_PROPERTY,
     GROW_PROPERTY,
+    OVERFLOW_V_PROPERTY,
+    OVERFLOW_H_PROPERTY,
+    WIDTH_PROPERTY,
     WINDOW_TAG,
     RECT_TAG,
     BUTTON_TAG,
@@ -49,7 +54,6 @@ enum NU_Token
     TEXT_CONTENT,
     UNDEFINED
 };
-
 enum Tag
 {
     WINDOW,
@@ -60,20 +64,28 @@ enum Tag
     NAT,
 };
 
-// Enums ------------------------ //
+
 
 
 
 // Structs ---------------------- //
+struct Text_Ref
+{
+    uint32_t node_ID;
+    uint32_t buffer_index;
+    uint32_t char_count;
+    uint32_t char_capacity; // excludes the null terminator
+};
 
 struct Node
 {
     SDL_Renderer* renderer;
     uint32_t ID;
     enum Tag tag;
-    float x, y, width, height, gap;
+    float x, y, width, height, preferred_width, gap, content_width, content_height;
     int parent_index;
     int first_child_index;
+    int text_ref_index;
     uint16_t child_capacity;
     uint16_t child_count;
     uint16_t pad_top, pad_bottom, pad_left, pad_right;
@@ -89,14 +101,6 @@ struct Property_Text_Ref
     uint32_t NU_Token_index;
     uint32_t src_index;
     uint8_t char_count;
-};
-
-struct Text_Ref
-{
-    uint32_t node_ID;
-    uint32_t buffer_index;
-    uint32_t char_count;
-    uint32_t char_capacity;
 };
 
 struct Arena_Free_Element
@@ -128,7 +132,7 @@ struct UI_Tree
 
 static enum NU_Token NU_Word_To_NU_Token(char word[], uint8_t word_char_count)
 {
-    for (uint8_t i = 0; i < 9; i++) {
+    for (uint8_t i = 0; i < 12; i++) {
         size_t len = keyword_lengths[i];
         if (len == word_char_count && memcmp(word, keywords[i], len) == 0) {
             return i;
@@ -139,9 +143,9 @@ static enum NU_Token NU_Word_To_NU_Token(char word[], uint8_t word_char_count)
 
 static enum Tag NU_Token_To_Tag(enum NU_Token NU_Token)
 {
-    int tag_candidate = NU_Token - 3;
+    int tag_candidate = NU_Token - 6;
     if (tag_candidate < 0) return NAT;
-    return NU_Token - 3;
+    return NU_Token - 6;
 }
 
 static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector, struct Text_Arena* text_arena) 
@@ -192,6 +196,8 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
             // Reset global text character count
             if (text_char_count > 0)
             {
+                char null_terminator = '\0';
+                Vector_Push(&text_arena->char_buffer, &null_terminator); // add null terminator
                 struct Text_Ref new_ref;
                 new_ref.char_count = text_char_count;
                 new_ref.char_capacity = text_char_count;
@@ -218,6 +224,8 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
             // Reset global text character count
             if (text_char_count > 0)
             {
+                char null_terminator = '\0';
+                Vector_Push(&text_arena->char_buffer, &null_terminator); // add null terminator
                 struct Text_Ref new_ref;
                 new_ref.char_count = text_char_count;
                 new_ref.char_capacity = text_char_count;
@@ -309,6 +317,28 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
             continue;
         }
 
+        // If global space and split character
+        if (ctx == 0 && c != '\t' && c != '\n')
+        {
+            // text continues
+            if (text_char_count > 0)
+            {
+                Vector_Push(&text_arena->char_buffer, &c);
+                text_char_count += 1;
+            }
+
+            // text starts
+            if (text_char_count == 0 && c != ' ')
+            {
+                text_arena_buffer_index = text_arena->char_buffer.size;
+                Vector_Push(&text_arena->char_buffer, &c);
+                text_char_count = 1;
+            }
+
+            i+=1;
+            continue;
+        }
+
         // If split character
         if (c == ' ' || c == '\t' || c == '\n')
         {
@@ -328,25 +358,6 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
             word_char_index+=1;
         }
 
-        // If global space and split character
-        if (ctx == 0 && c != '\t' && c != '\n')
-        {
-            // text continues
-            if (text_char_count > 0)
-            {
-                Vector_Push(&text_arena->char_buffer, &c);
-                text_char_count += 1;
-            }
-
-            // text starts
-            if (text_char_count == 0 && c != ' ')
-            {
-                text_arena_buffer_index = text_arena->char_buffer.size;
-                Vector_Push(&text_arena->char_buffer, &c);
-                text_char_count = 1;
-            }
-        }
-
         i+=1;
     }
 
@@ -358,7 +369,51 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
 
 static int NU_Is_Token_Property(enum NU_Token NU_Token)
 {
-    return NU_Token < 3;
+    return NU_Token < 6;
+}
+
+static int Property_Text_To_Float(float* result, char* src_buffer, struct Property_Text_Ref* ptext_ref)
+{
+    *result = 0.0f;
+    float fraction_divider = 1.0f;
+    int decimal_found = 0;
+
+    for (uint8_t i = 0; i < ptext_ref->char_count; i++)
+    {
+        char c = src_buffer[ptext_ref->src_index + i];
+        printf("%c", c);
+
+        if (c == '.')
+        {
+            if (decimal_found) 
+            {
+                *result = 0.0f;
+                return -1;
+            }
+            decimal_found = 1;
+            continue;
+        }
+
+        if (c < '0' || c > '9')
+        {
+            *result = 0.0f;
+            return -1;
+        }
+
+        int digit = c - '0';
+
+        if (!decimal_found)
+        {
+            *result = (*result * 10.0f) + digit;
+        }
+        else
+        {
+            fraction_divider *= 10.0f;
+            *result += digit / fraction_divider;
+        }
+    }
+
+    return 0;   
 }
 
 static int AssertRootGrammar(struct Vector* token_vector)
@@ -454,7 +509,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
     int i = 0;
     int current_layer = -1;
     ui_tree->deepest_layer = 0;
-    struct Node* current_node = (struct Node*) Vector_Get(&ui_tree->tree_stack[0], 0);
+    struct Node* current_node = NULL;
     uint32_t current_node_ID = 0;
     while (i < NU_Token_vector->size - 3)
     {
@@ -479,7 +534,9 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 new_node.tag = NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(NU_Token_vector, i+1)));
                 new_node.renderer = NULL; 
                 new_node.child_count = 0;
+                new_node.preferred_width = 0.0f;
                 new_node.first_child_index = -1;
+                new_node.text_ref_index = -1;
                 new_node.layout_flags = 0;
                 new_node.parent_index = ui_tree->tree_stack[current_layer].size - 1; 
 
@@ -554,6 +611,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
         {
             struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, text_content_ref_index);
             text_ref->node_ID = current_node_ID;
+            current_node->text_ref_index = text_content_ref_index;
             text_content_ref_index += 1;
 
             // Increment NU_Token
@@ -575,18 +633,19 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 {
                     // Set layout direction
                     case LAYOUT_DIRECTION_PROPERTY:
-                        if (c == 'h')
-                        {
+
+                        if (c == 'h') {
                             current_node->layout_flags |= LAYOUT_HORIZONTAL;
                         }  
-                        else
-                        {
+                        else {
                             current_node->layout_flags |= LAYOUT_VERTICAL;
                         }
+
                         break;
 
                     // Set growth
                     case GROW_PROPERTY:
+
                         switch(c)
                         {
                             case 'v':
@@ -599,12 +658,39 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                                 current_node->layout_flags |= (GROW_HORIZONTAL | GROW_VERTICAL);
                                 break;
                         }
+
                         break;
                     
+                    // Set overflow behaviour
+                    case OVERFLOW_V_PROPERTY:
+
+                        if (c == 's') {
+                            current_node->layout_flags |= OVERFLOW_VERTICAL_SCROLL;
+                        }
+
+                        break;
+                    
+                    case OVERFLOW_H_PROPERTY:
+
+                        if (c == 's') {
+                            current_node->layout_flags |= OVERFLOW_HORIZONTAL_SCROLL;
+                        }
+
+                        break;
+                    
+                    case WIDTH_PROPERTY:
+
+                        float width; 
+                        if (Property_Text_To_Float(&width, src_buffer, current_property_text) == 0)
+                        {
+                            current_node->preferred_width = width;
+                        }
+
+                        break;
+                        
                     default:
                         break;
                 }
-
 
                 // Increment NU_Token
                 i+=3;
