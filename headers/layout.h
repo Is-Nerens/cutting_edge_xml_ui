@@ -517,7 +517,7 @@ void NU_Draw_Node(struct Node* node)
     }
     else if (node->tag == BUTTON)
     {
-        SDL_SetRenderDrawColor(node->renderer, 200, 200, 200, 255);
+        SDL_SetRenderDrawColor(node->renderer, 50, 50, 50, 255);
     }
     else if (node->tag == WINDOW)
     {
@@ -567,7 +567,7 @@ void NU_Draw_Node(struct Node* node)
 
 void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text)
 {
-    SDL_Color textCol = { 0, 0, 0, 255 };
+    SDL_Color textCol = { 255, 255, 255, 255 };
     SDL_Surface* text_surface = TTF_RenderText_Blended(ui_tree->font, text, strlen(text), textCol);
     SDL_Texture *text_texture = SDL_CreateTextureFromSurface(node->renderer, text_surface);  
     SDL_SetTextureBlendMode(text_texture, SDL_BLENDMODE_BLEND);
@@ -576,8 +576,8 @@ void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text)
     float textHeight = (float) (text_surface->h) * 0.5f;
     float half_rem_inner_width = (node->width - node->border_left - node->border_right - textWidth) * 0.5f;
     float half_rem_inner_height = (node->height - node->border_top - node->border_bottom - textHeight) * 0.5f;
-    float textPosX = node->x + node->border_left + half_rem_inner_width;
-    float textPosY = node->y + node->border_top + half_rem_inner_height;
+    float textPosX = ceilf(node->x + node->border_left + half_rem_inner_width);
+    float textPosY = ceilf(node->y + node->border_top + half_rem_inner_height);
     SDL_FRect text_rect; 
     text_rect.x = textPosX;
     text_rect.y = textPosY;
