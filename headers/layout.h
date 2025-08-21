@@ -1,7 +1,12 @@
 #include <SDL3/SDL.h>
 #include <SDL_ttf/SDL_ttf.h>
+#include <GL/glew.h>
 #include <stdbool.h>
 #include <math.h>
+
+#define NANOVG_GL3_IMPLEMENTATION
+#include <nanovg.h>
+#include <nanovg_gl.h>
 
 // UI layout ------------------------------------------------------------
 struct NU_Cursor
@@ -10,13 +15,33 @@ struct NU_Cursor
     char is_vertical;
 };
 
-void NU_Create_New_Window(struct Node* window_node, struct Vector* windows, struct Vector* renderers)
+void NU_Create_New_Window(struct UI_Tree* ui_tree, struct Node* window_node, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
 {
-    SDL_Window* new_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_RESIZABLE);
-    SDL_Renderer* new_renderer = SDL_CreateRenderer(new_window, "opengl");
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+    SDL_Window* new_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    SDL_GLContext new_gl_context = SDL_GL_CreateContext(new_window);
+    SDL_GL_MakeCurrent(new_window, new_gl_context);
+    glewInit();
+    
+
+    NVGcontext* new_nano_vg_context = nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
+    struct Vector font_registry;
+    Vector_Reserve(&font_registry, sizeof(int), 8);
+    for (int i=0; i<ui_tree->font_resources.size; i++)
+    {
+        struct Font_Resource* font = Vector_Get(&ui_tree->font_resources, i);
+        int fontID = nvgCreateFontMem(new_nano_vg_context, font->name, font->data, font->size, 0);
+        Vector_Push(&font_registry, &fontID);
+    }
     Vector_Push(windows, &new_window);
-    Vector_Push(renderers, &new_renderer);
-    window_node->renderer = new_renderer;
+    Vector_Push(gl_contexts, &new_gl_context);
+    Vector_Push(nano_vg_contexts, &new_nano_vg_context);
+    Vector_Push(&ui_tree->font_registries, &font_registry);
+    window_node->window = new_window;
+    window_node->vg = new_nano_vg_context;
 }
 
 void NU_Reset_Node_size(struct Node* node)
@@ -35,35 +60,69 @@ void NU_Reset_Node_size(struct Node* node)
     node->gap = 0.0f;
 }
 
-void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree)
+void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
 {
     // For each layer
     for (int l=0; l<=ui_tree->deepest_layer; l++)
     {
-        struct Vector* layer = &ui_tree->tree_stack[l];
-        
-        // Draw all nodes in layer
-        for (int n=0; n<layer->size; n++)
-        {   
-            struct Node* node = Vector_Get(layer, n);
-            NU_Reset_Node_size(node);
+        struct Vector* parent_layer = &ui_tree->tree_stack[l];
+        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+
+        for (int p=0; p<parent_layer->size; p++)
+        {       
+            // Iterate over layer
+            struct Node* parent = Vector_Get(parent_layer, p);
+
+            // If parent is window node and has no SDL window assigned to it
+            if (parent->tag == WINDOW && parent->window == NULL)
+            {
+                // Create a new window and renderer
+                NU_Create_New_Window(ui_tree, parent, windows, gl_contexts, nano_vg_contexts);
+            }
+
+            if (parent->child_count == 0) continue; // Skip acummulating child sizes (no children)
+
+            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+            {
+                struct Node* child = Vector_Get(child_layer, i);
+
+                // Inherit window and renderer from parent
+                if (child->tag != WINDOW && child->window == NULL)
+                {
+                    child->window = parent->window;
+                    child->vg = parent->vg;
+                }
+
+                NU_Reset_Node_size(child);
+            }
         }
     }
 }
+
 
 void NU_Calculate_Text_Fit_Size(struct UI_Tree* ui_tree, struct Node* node, struct Text_Ref* text_ref)
 {
     // Extract pointer to text
     char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
+    float bounds[4];  // left, top, right, bottom
+    float width, height;
 
-    int width = 0, height = 0;
-    TTF_GetStringSize(ui_tree->font, text, text_ref->char_count, &width, &height);
-    width *= 0.5f;
-    height *= 0.5f;
+    // Make sure the NanoVG context has the correct font/size set before measuring!
+    struct Vector* font_registry = Vector_Get(&ui_tree->font_registries, 0);
+    int fontID = *(int*) Vector_Get(font_registry, 0);
+    nvgFontFaceId(node->vg, fontID);   
+    nvgFontSize(node->vg, 18);
 
-    // Apply size
-    if (node->preferred_width == 0.0f) node->width += (float) width;
-    node->height += (float) height;
+    // Calculate text bounds
+    nvgTextBounds(node->vg, 0, 0, text, text + text_ref->char_count, bounds);
+    width  = bounds[2] - bounds[0];
+    height = bounds[3] - bounds[1];
+
+
+    // Apply size (only set preferred width if not specified)
+    if (node->preferred_width == 0.0f)
+        node->width += width;
+    node->height += height;
 }
 
 void NU_Calculate_Text_Fit_Sizes(struct UI_Tree* ui_tree)
@@ -83,7 +142,7 @@ void NU_Calculate_Text_Fit_Sizes(struct UI_Tree* ui_tree)
     }
 }
 
-void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* renderers)
+void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
 {   
     if (ui_tree->deepest_layer == 0) return;
 
@@ -102,17 +161,9 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
             if (parent->tag == WINDOW)
             {
                 int window_width, window_height;
-                SDL_GetWindowSize(SDL_GetRenderWindow(parent->renderer), &window_width, &window_height);
+                SDL_GetWindowSize(parent->window, &window_width, &window_height);
                 parent->width = (float) window_width;
                 parent->height = (float) window_height;
-            }
-
-
-            // If parent is window node and has no SDL window assigned to it
-            if (parent->tag == WINDOW && parent->renderer == NULL)
-            {
-                // Create a new window and renderer
-                NU_Create_New_Window(parent, windows, renderers);
             }
 
             if (parent->child_count == 0)
@@ -128,12 +179,6 @@ void NU_Calculate_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct 
             for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
                 struct Node* child = Vector_Get(child_layer, i);
-
-                // Inherit renderer from parent
-                if (child->tag != WINDOW && child->renderer == NULL)
-                {
-                    child->renderer = parent->renderer;
-                }
 
                 if (child->tag == WINDOW)
                 {
@@ -471,143 +516,120 @@ void NU_Calculate_Positions(struct UI_Tree* ui_tree)
 
 
 // UI rendering ---------------------------------------------------------
-void NU_Draw_Node(struct Node* node)
+void NU_Draw_Node(struct Node* node, NVGcontext* vg)
 {
-    float inner_width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
+    float inner_width  = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
     float inner_height = node->height - node->border_top - node->border_bottom - node->pad_top - node->pad_bottom;
-    
-    SDL_FRect rect; 
-    rect.x = node->x;
-    rect.y = node->y;
-    rect.w = node->width;
-    rect.h = node->height;
 
-    if (node->content_height > inner_height && node->layout_flags & OVERFLOW_VERTICAL_SCROLL)
+    // Fill color based on tag
+    NVGcolor fillColor;
+    switch(node->tag)
     {
-        rect.w -= 12;
-
-        // Draw horizontal scroll bar
-        SDL_FRect scroll_rect;
-        scroll_rect.x = rect.x + rect.w - node->border_right;
-        scroll_rect.y = rect.y;
-        scroll_rect.w = 12;
-        scroll_rect.h = rect.h - node->border_bottom;
-        SDL_SetRenderDrawColor(node->renderer, 255, 255, 255, 255);
-        SDL_RenderFillRect(node->renderer, &scroll_rect);
+        case RECT:   fillColor = nvgRGB(120, 100, 100); break;
+        case BUTTON: fillColor = nvgRGB(200, 200, 200); break;
+        case WINDOW: fillColor = nvgRGB(60, 30, 255); break;
+        default:     fillColor = nvgRGB(100, 150, 120); break;
     }
 
-    if (node->content_width > inner_width && node->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)
-    {
-        rect.h -= 12;
+    nvgBeginPath(vg);
+    nvgRect(vg, node->x, node->y, node->width, node->height); // could be improved with per-corner radii
+    nvgFillColor(vg, fillColor);
+    nvgFill(vg);
 
-        // Draw horizontal scroll bar
-        SDL_FRect scroll_rect;
-        scroll_rect.x = rect.x;
-        scroll_rect.y = rect.y + rect.h - node->border_bottom;
-        scroll_rect.w = rect.w - node->border_right;
-        scroll_rect.h = 12;
-        SDL_SetRenderDrawColor(node->renderer, 255, 255, 255, 255);
-        SDL_RenderFillRect(node->renderer, &scroll_rect);
+    // Optional: draw border
+    NVGcolor borderColor = nvgRGBA(node->border_r, node->border_g, node->border_b, node->border_a);
+    nvgStrokeColor(vg, borderColor);
+    nvgStrokeWidth(vg, 1.0f);
+    nvgStroke(vg);
+
+    // Scrollbars if needed
+    if (node->content_height > inner_height && (node->layout_flags & OVERFLOW_VERTICAL_SCROLL)) {
+        nvgBeginPath(vg);
+        nvgRect(vg, node->x + node->width - 12, node->y, 12, inner_height);
+        nvgFillColor(vg, nvgRGB(255,255,255));
+        nvgFill(vg);
     }
-
-    // SET RECT COLOUR
-    if (node->tag == RECT)
-    {
-        SDL_SetRenderDrawColor(node->renderer, 120, 100, 100, 255);
+    if (node->content_width > inner_width && (node->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) {
+        nvgBeginPath(vg);
+        nvgRect(vg, node->x, node->y + node->height - 12, inner_width, 12);
+        nvgFillColor(vg, nvgRGB(255,255,255));
+        nvgFill(vg);
     }
-    else if (node->tag == BUTTON)
-    {
-        SDL_SetRenderDrawColor(node->renderer, 200, 200, 200, 255);
-    }
-    else if (node->tag == WINDOW)
-    {
-        SDL_SetRenderDrawColor(node->renderer, 60, 30, 255, 255);
-    }
-    else
-    {
-        SDL_SetRenderDrawColor(node->renderer, 100, 150, 120, 255);
-    }
-    
-
-    // Render Rect
-    SDL_RenderFillRect(node->renderer, &rect);
-
-    SDL_FColor col = {
-        // (float)node->border_r / 255.0f,
-        // (float)node->border_g / 255.0f,
-        // (float)node->border_b / 255.0f,
-        // (float)node->border_a / 255.0f
-        0.0f,
-        0.0f,
-        0.0f,
-        1.0f
-    };
-
-    // Construct Border
-    SDL_Vertex verts[8] = {
-        { .position = {rect.x, rect.y}, .color = col, .tex_coord = {0, 0} },
-        { .position = {rect.x + rect.w, rect.y}, .color = col, .tex_coord = {0, 0} },
-        { .position = {rect.x + node->border_left, rect.y + node->border_top}, .color = col, .tex_coord = {0, 0} },
-        { .position = {rect.x + rect.w - node->border_right, rect.y + node->border_top}, .color = col, .tex_coord = {0, 0}},
-        { .position = {rect.x, rect.y + rect.h}, .color = col, .tex_coord = {0, 0}},
-        { .position = {rect.x + rect.w, rect.y + rect.h}, .color = col, .tex_coord = {0, 0}},
-        { .position = {rect.x + node->border_left, rect.y + rect.h - node->border_bottom}, .color = col, .tex_coord = {0, 0}},
-        { .position = {rect.x + rect.w - node->border_right, rect.y + rect.h - node->border_bottom}, .color = col, .tex_coord = {0, 0}},
-    };
-
-    int indices[] = {
-        0, 1, 2, 2, 1, 3,      // top border
-        1, 5, 7, 1, 7, 3,      // right border
-        4, 6, 7, 4, 7, 5,      // bottom border
-        4, 0, 6, 0, 2, 6       // left border
-    };
-
-    SDL_RenderGeometry(node->renderer, NULL, verts, 8, indices, 24);
 }
 
-void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text)
+void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text,NVGcontext* vg)
 {
-    SDL_Color textCol = { 0, 0, 0, 255 };
-    SDL_Surface* text_surface = TTF_RenderText_Blended(ui_tree->font, text, strlen(text), textCol);
-    SDL_Texture *text_texture = SDL_CreateTextureFromSurface(node->renderer, text_surface);  
-    SDL_SetTextureBlendMode(text_texture, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureScaleMode(text_texture, SDL_SCALEMODE_LINEAR);
-    float textWidth = (float) (text_surface->w) * 0.5f;
-    float textHeight = (float) (text_surface->h) * 0.5f;
-    float half_rem_inner_width = (node->width - node->border_left - node->border_right - textWidth) * 0.5f;
-    float half_rem_inner_height = (node->height - node->border_top - node->border_bottom - textHeight) * 0.5f;
-    float textPosX = node->x + node->border_left + half_rem_inner_width;
-    float textPosY = node->y + node->border_top + half_rem_inner_height;
-    SDL_FRect text_rect; 
-    text_rect.x = textPosX;
-    text_rect.y = textPosY;
-    text_rect.w = textWidth;
-    text_rect.h = textHeight;
-    SDL_RenderTexture(node->renderer, text_texture, NULL, &text_rect);  
-    SDL_DestroyTexture(text_texture);
-    SDL_DestroySurface(text_surface);
+    struct Vector* font_registry = Vector_Get(&ui_tree->font_registries, 0);
+    int fontID = *(int*) Vector_Get(font_registry, 0);
+    nvgFontFaceId(node->vg, fontID);   
+    nvgFontSize(node->vg, 18);
+
+    nvgFillColor(vg, nvgRGB(1,0,0));
+    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+
+    float inner_width  = node->width - node->border_left - node->border_right;
+    float inner_height = node->height - node->border_top - node->border_bottom;
+
+    float textBounds[4];
+    nvgTextBounds(vg, 0,0, text, NULL, textBounds);
+    float textWidth = textBounds[2] - textBounds[0];
+    float textHeight = textBounds[3] - textBounds[1];
+
+    float textPosX = roundf(node->x + node->border_left + inner_width*0.5f);
+    float textPosY = roundf(node->y + node->border_top + inner_height*0.5f);
+
+    nvgText(vg, textPosX, textPosY, text, NULL);
 }
 
-void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* renderers)
+void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
 {
-    // Clear window images
-    for (int i=0; i<renderers->size; i++)
+    struct Vector window_nodes_list[16];
+    for (int i=0; i<windows->size; i++)
     {
-        SDL_Renderer* renderer = *(SDL_Renderer**) Vector_Get(renderers, i);
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);  
-        SDL_RenderClear(renderer);
+        Vector_Reserve(&window_nodes_list[i], sizeof(struct Node*), 1000);
     }
-        
+
     // For each layer
     for (int l=0; l<=ui_tree->deepest_layer; l++)
     {
         struct Vector* layer = &ui_tree->tree_stack[l];
-        
-        // Draw all nodes in layer
         for (int n=0; n<layer->size; n++)
         {   
             struct Node* node = Vector_Get(layer, n);
-            NU_Draw_Node(node);
+            for (int i=0; i<windows->size; i++)
+            {
+                SDL_Window* window = *(SDL_Window**) Vector_Get(windows, i);
+                if (window == node->window)
+                {
+                    Vector_Push(&window_nodes_list[i], &node);
+                }
+            }
+        }
+    }
+
+
+    // For each window
+    for (int i=0; i<windows->size; i++)
+    {
+        SDL_Window* window = *(SDL_Window**) Vector_Get(windows, i);
+        SDL_GLContext gl_context = *(SDL_GLContext*) Vector_Get(gl_contexts, i);
+        NVGcontext* nano_vg_context = *(NVGcontext**) Vector_Get(nano_vg_contexts, i);
+        SDL_GL_MakeCurrent(window, gl_context);
+
+        // Clear the window
+        int w, h;
+        SDL_GetWindowSize(window, &w, &h);
+        glViewport(0, 0, w, h);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f); 
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+        nvgBeginFrame(nano_vg_context, w, h, 1.0f);
+
+        // For each node belonging to the window
+        for (int n=0; n<window_nodes_list[i].size; n++)
+        {
+            struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
+            NU_Draw_Node(node, nano_vg_context);
 
             if (node->text_ref_index != -1)
             {
@@ -616,17 +638,24 @@ void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* r
                 // Extract pointer to text
                 char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
                 if (text_ref->char_count != text_ref->char_capacity) text[text_ref->char_count] = '\0';
-                NU_Draw_Node_Text(ui_tree, node, text);
+                NU_Draw_Node_Text(ui_tree, node, text, nano_vg_context);
                 if (text_ref->char_count != text_ref->char_capacity) text[text_ref->char_count] = ' ';
             }
         }
+
+        // Draw a single test rectangle
+        nvgBeginPath(nano_vg_context);
+        nvgRoundedRect(nano_vg_context, 50, 50, 200, 100, 10);  // x, y, width, height, radius
+        nvgFillColor(nano_vg_context, nvgRGB(255, 0, 0));       // bright red
+
+        // Render to window
+        nvgEndFrame(nano_vg_context);
+        SDL_GL_SwapWindow(window); 
     }
 
-    // Render to windows
-    for (int i=0; i<renderers->size; i++)
+    for (int i=0; i<windows->size; i++)
     {
-        SDL_Renderer* renderer = *(SDL_Renderer**) Vector_Get(renderers, i);
-        SDL_RenderPresent(renderer);
+        Vector_Free(&window_nodes_list[i]);
     }
 }
 // UI rendering ---------------------------------------------------------
@@ -637,7 +666,8 @@ void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* r
 struct NU_Watcher_Data {
     struct UI_Tree* ui_tree;
     struct Vector* windows;
-    struct Vector* renderers;
+    struct Vector* gl_contexts;
+    struct Vector* nano_vg_contexts;
 };
 
 bool ResizingEventWatcher(void* data, SDL_Event* event) 
@@ -646,12 +676,12 @@ bool ResizingEventWatcher(void* data, SDL_Event* event)
 
     if (event->type == SDL_EVENT_WINDOW_RESIZED) 
     {
-        NU_Clear_Node_Sizes(wd->ui_tree);
+        NU_Clear_Node_Sizes(wd->ui_tree, wd->windows, wd->gl_contexts, wd->nano_vg_contexts);
         NU_Calculate_Text_Fit_Sizes(wd->ui_tree);
-        NU_Calculate_Sizes(wd->ui_tree, wd->windows, wd->renderers);
+        NU_Calculate_Sizes(wd->ui_tree, wd->windows, wd->gl_contexts, wd->nano_vg_contexts);
         NU_Grow_Nodes(wd->ui_tree);
         NU_Calculate_Positions(wd->ui_tree);
-        NU_Render(wd->ui_tree, wd->windows, wd->renderers);
+        NU_Render(wd->ui_tree, wd->windows, wd->gl_contexts, wd->nano_vg_contexts);
     }
     return true;
 }

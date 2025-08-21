@@ -64,7 +64,7 @@ int main(void) {
         return -1;
     }
 
-    int font = nvgCreateFont(vg, "gustan", "./Gustan-Book.ttf");
+    int font = nvgCreateFont(vg, "inter", "./Inter/Inter_Variable_Weight.ttf");
 
 
     int isRunning = 1;
@@ -78,12 +78,11 @@ int main(void) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         nvgBeginFrame(vg, w, h, 1.0f);
-        nvgFontFace(vg, "gustan");
-        nvgFontSize(vg, 36.0f);
-        nvgFontBlur(vg, 0.0f); 
-        nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        nvgFontFace(vg, "inter");
+        nvgFontSize(vg, 72.0f);
+        nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
         nvgFillColor(vg, nvgRGBA(255, 255, 255, 255));
-        nvgText(vg, w/2, h/2 - 20, "Custom font test", NULL);
+        nvgText(vg, 0, 200, "The quick brown fox jumps over the lazy dog 1234567890", NULL);
 
         nvgEndFrame(vg);
 

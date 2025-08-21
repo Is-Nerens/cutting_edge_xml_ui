@@ -15,6 +15,7 @@
 //    misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 //
+#pragma once
 #ifndef NANOVG_GL_H
 #define NANOVG_GL_H
 
@@ -667,7 +668,7 @@ static int glnvg__renderCreate(void* uptr)
 		"#endif\n"
 		"		if (texType == 1) color = vec4(color.xyz*color.w,color.w);"
 		"		if (texType == 2) color = vec4(color.x);"
-		"		float exponent = 2.5; // values > 1 -> sharper aliasing\n"
+		"		float exponent = 1; // values > 1 -> sharper aliasing\n"
 		"		float alpha = color.a; \n"
 		"		alpha = pow(alpha, exponent);\n"
 		"		color.a = alpha;\n"

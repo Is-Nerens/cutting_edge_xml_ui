@@ -1,3 +1,4 @@
+#pragma once
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MAX_TREE_DEPTH 32
 
@@ -9,12 +10,18 @@
 #define OVERFLOW_VERTICAL_SCROLL     0x08        // 0b00001000
 #define OVERFLOW_HORIZONTAL_SCROLL   0x10        // 0b00010000
 
+#include <SDL3/SDL.h>
+#include <GL/glew.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include "performance.h"
 #include "vector.h"
+
+#define NANOVG_GL3_IMPLEMENTATION
+#include <nanovg.h>
+#include <nanovg_gl.h>
 
 const char* keywords[] = {
     "id",
@@ -79,7 +86,8 @@ struct Text_Ref
 
 struct Node
 {
-    SDL_Renderer* renderer;
+    SDL_Window* window;
+    NVGcontext* vg;
     uint32_t ID;
     enum Tag tag;
     float x, y, width, height, preferred_width, gap, content_width, content_height;
@@ -116,12 +124,25 @@ struct Text_Arena
     struct Vector char_buffer;
 };
 
+struct Font_Resource
+{
+    char* name;
+    unsigned char* data; 
+    int size;  
+};
+
+struct Font_Registry {
+    int* font_ids;  
+    int count;      
+};
+
 struct UI_Tree
 {
     struct Vector tree_stack[MAX_TREE_DEPTH];
     struct Text_Arena text_arena;
     uint16_t deepest_layer;
-    TTF_Font* font;
+    struct Vector font_resources;
+    struct Vector font_registries;
 };
 
 // Structs ---------------------- //
@@ -532,7 +553,8 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 current_node_ID = ((uint32_t) (current_layer + 1) << 24) | (ui_tree->tree_stack[current_layer+1].size & 0xFFFFFF); // Max depth = 256, Max node index = 16,777,215
                 new_node.ID = current_node_ID;
                 new_node.tag = NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(NU_Token_vector, i+1)));
-                new_node.renderer = NULL; 
+                new_node.window = NULL; 
+                new_node.vg = NULL;
                 new_node.child_count = 0;
                 new_node.preferred_width = 0.0f;
                 new_node.first_child_index = -1;

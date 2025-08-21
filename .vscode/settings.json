@@ -9,6 +9,7 @@
         "sdl_ttf.h": "c",
         "performance.h": "c",
         "nanovg.h": "c",
-        "layout.h": "c"
+        "layout.h": "c",
+        "glew.h": "c"
     }
 }

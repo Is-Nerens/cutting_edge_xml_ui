@@ -1,3 +1,5 @@
+#pragma once
+
 struct Vector
 {
     uint32_t capacity;
