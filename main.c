@@ -144,7 +144,7 @@ int main()
     }
 
     SDL_Window* window = SDL_CreateWindow(
-        "Text Rendering", 800, 600,
+        "Text Rendering", 700, 600,
         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
     );
 
