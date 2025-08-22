@@ -1,5 +1,4 @@
 #include <SDL3/SDL.h>
-#include <SDL_ttf/SDL_ttf.h>
 #include <GL/glew.h>
 #include <stdbool.h>
 #include <math.h>
