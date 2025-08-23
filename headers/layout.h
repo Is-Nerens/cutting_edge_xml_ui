@@ -6,6 +6,7 @@
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg.h>
 #include <nanovg_gl.h>
+#include <freetype/freetype.h>
 
 // UI layout ------------------------------------------------------------
 struct NU_Cursor
@@ -25,13 +26,13 @@ void NU_Create_New_Window(struct UI_Tree* ui_tree, struct Node* window_node, str
     SDL_GL_MakeCurrent(new_window, new_gl_context);
     glewInit();
     
-
     NVGcontext* new_nano_vg_context = nvgCreateGL3(NVG_STENCIL_STROKES);
     struct Vector font_registry;
     Vector_Reserve(&font_registry, sizeof(int), 8);
     for (int i=0; i<ui_tree->font_resources.size; i++)
     {
         struct Font_Resource* font = Vector_Get(&ui_tree->font_resources, i);
+        int id = nvgCreateFontMemFT(new_nano_vg_context, ft_lib, font->name, font->data, font->size, 0);
         int fontID = nvgCreateFontMem(new_nano_vg_context, font->name, font->data, font->size, 0);
         Vector_Push(&font_registry, &fontID);
     }
