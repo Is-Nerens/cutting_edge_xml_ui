@@ -178,7 +178,7 @@ int main()
     }
 
     float dpi = 96.0f * hidpi_scale;
-    float font_size = 18.0f;
+    float font_size = 12.0f;
     unsigned int font_pixels_v = (unsigned int)roundf((dpi / 72.0f) * font_size);
 
     FT_Set_Pixel_Sizes(face, 0, font_pixels_v);
@@ -209,7 +209,7 @@ int main()
     cairo_set_font_face(cr, cairo_face);
     cairo_set_font_size(cr, (double)font_pixels_v);
 
-    cairo_set_source_rgb(cr, 0.1, 1.0, 0.1);
+    cairo_set_source_rgb(cr, 0.1, 1.0, 1.0);
     cairo_move_to(cr, 50.5, 100.5);
     cairo_show_text(cr, "Crystal Clear Text!");
     cairo_move_to(cr, 50.5, 150.5);
