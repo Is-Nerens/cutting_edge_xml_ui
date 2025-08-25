@@ -32,7 +32,6 @@ void NU_Create_New_Window(struct UI_Tree* ui_tree, struct Node* window_node, str
     for (int i=0; i<ui_tree->font_resources.size; i++)
     {
         struct Font_Resource* font = Vector_Get(&ui_tree->font_resources, i);
-        int id = nvgCreateFontMemFT(new_nano_vg_context, ft_lib, font->name, font->data, font->size, 0);
         int fontID = nvgCreateFontMem(new_nano_vg_context, font->name, font->data, font->size, 0);
         Vector_Push(&font_registry, &fontID);
     }
@@ -114,13 +113,14 @@ void NU_Calculate_Text_Fit_Size(struct UI_Tree* ui_tree, struct Node* node, stru
     nvgFontSize(node->vg, 18);
 
     // Calculate text bounds
+    float asc, desc, lh;
+    nvgTextMetrics(node->vg, &asc, &desc, &lh);
+    height = lh - desc;
     nvgTextBounds(node->vg, 0, 0, text, text + text_ref->char_count, bounds);
-    width  = bounds[2] - bounds[0];
-    height = bounds[3] - bounds[1];
-
+    width = bounds[2] - bounds[0];
 
     // Apply size (only set preferred width if not specified)
-    if (node->preferred_width == 0.0f)
+    if (width > node->preferred_width)
         node->width += width;
     node->height += height;
 }
@@ -570,13 +570,16 @@ void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text,NV
     float inner_width  = node->width - node->border_left - node->border_right;
     float inner_height = node->height - node->border_top - node->border_bottom;
 
+
+    float asc, desc, lh;
+    nvgTextMetrics(node->vg, &asc, &desc, &lh);
+    float textHeight = asc - desc * 2.0f;
     float textBounds[4];
     nvgTextBounds(vg, 0,0, text, NULL, textBounds);
     float textWidth = textBounds[2] - textBounds[0];
-    float textHeight = textBounds[3] - textBounds[1];
 
     float textPosX = node->x + node->border_left + inner_width*0.5f;
-    float textPosY = node->y + node->border_top + inner_height*0.5f;
+    float textPosY = node->y + node->border_top + inner_height*0.5f - desc * 0.5f;
 
     nvgText(vg, floorf(textPosX), floorf(textPosY), text, NULL);
 }
