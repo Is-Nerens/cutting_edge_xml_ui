@@ -97,13 +97,7 @@ int main()
         // Calculate element positions
         // timer_start();
         // start_measurement();
-        NU_Clear_Node_Sizes(&ui_tree, &windows, &gl_contexts, &nano_vg_contexts);
-        NU_Calculate_Text_Fit_Sizes(&ui_tree);
-        NU_Calculate_Sizes(&ui_tree, &windows, &gl_contexts, &nano_vg_contexts);
-        NU_Grow_Nodes(&ui_tree);
-        NU_Calculate_Positions(&ui_tree);
         NU_Render(&ui_tree, &windows, &gl_contexts, &nano_vg_contexts);
-
         // end_measurement();
         // timer_stop();
     }

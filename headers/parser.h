@@ -23,13 +23,23 @@
 #include <nanovg.h>
 #include <nanovg_gl.h>
 
+#define PROPERTY_COUNT 13
+#define KEYWORD_COUNT 19
+
 const char* keywords[] = {
     "id",
     "dir",
     "grow",
-    "overflow_v",
-    "overflow_h",
+    "overflowV",
+    "overflowH",
     "width",
+    "minWidth",
+    "maxWidth",
+    "height", 
+    "minHeight",
+    "maxHeight",
+    "alignH",
+    "alignV",
     "window",
     "rect",
     "button",
@@ -37,7 +47,7 @@ const char* keywords[] = {
     "text",
     "image"
 };
-const uint8_t keyword_lengths[] = { 2, 3, 4, 10, 10, 5, 6, 4, 6, 4, 4, 5 };
+const uint8_t keyword_lengths[] = { 2, 3, 4, 9, 9, 5, 8, 8, 6, 9, 9, 6, 6, 6, 4, 6, 4, 4, 5 };
 enum NU_Token
 {
     ID_PROPERTY,
@@ -46,6 +56,13 @@ enum NU_Token
     OVERFLOW_V_PROPERTY,
     OVERFLOW_H_PROPERTY,
     WIDTH_PROPERTY,
+    MIN_WIDTH_PROPERTY,
+    MAX_WIDTH_PROPERTY,
+    HEIGHT_PROPERTY,
+    MIN_HEIGHT_PROPERTY,
+    MAX_HEIGHT_PROPERTY,
+    ALIGN_H_PROPERTY,
+    ALIGN_V_PROPERTY,
     WINDOW_TAG,
     RECT_TAG,
     BUTTON_TAG,
@@ -90,7 +107,9 @@ struct Node
     NVGcontext* vg;
     uint32_t ID;
     enum Tag tag;
-    float x, y, width, height, preferred_width, gap, content_width, content_height;
+    float x, y, width, height, preferred_width, preferred_height;
+    float min_width, max_width, min_height, max_height;
+    float gap, content_width, content_height;
     int parent_index;
     int first_child_index;
     int text_ref_index;
@@ -102,6 +121,8 @@ struct Node
     char background_r, background_g, background_b, background_a;
     char border_r, border_g, border_b, border_a;
     char layout_flags;
+    char horizontal_alignment;
+    char vertical_alignment;
 };
 
 struct Property_Text_Ref
@@ -153,7 +174,7 @@ struct UI_Tree
 
 static enum NU_Token NU_Word_To_NU_Token(char word[], uint8_t word_char_count)
 {
-    for (uint8_t i = 0; i < 12; i++) {
+    for (uint8_t i=0; i<KEYWORD_COUNT; i++) {
         size_t len = keyword_lengths[i];
         if (len == word_char_count && memcmp(word, keywords[i], len) == 0) {
             return i;
@@ -164,9 +185,9 @@ static enum NU_Token NU_Word_To_NU_Token(char word[], uint8_t word_char_count)
 
 static enum Tag NU_Token_To_Tag(enum NU_Token NU_Token)
 {
-    int tag_candidate = NU_Token - 6;
+    int tag_candidate = NU_Token - PROPERTY_COUNT;
     if (tag_candidate < 0) return NAT;
-    return NU_Token - 6;
+    return NU_Token - PROPERTY_COUNT;
 }
 
 static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector, struct Text_Arena* text_arena) 
@@ -390,7 +411,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
 
 static int NU_Is_Token_Property(enum NU_Token NU_Token)
 {
-    return NU_Token < 6;
+    return NU_Token < PROPERTY_COUNT;
 }
 
 static int Property_Text_To_Float(float* result, char* src_buffer, struct Property_Text_Ref* ptext_ref)
@@ -402,7 +423,6 @@ static int Property_Text_To_Float(float* result, char* src_buffer, struct Proper
     for (uint8_t i = 0; i < ptext_ref->char_count; i++)
     {
         char c = src_buffer[ptext_ref->src_index + i];
-        printf("%c", c);
 
         if (c == '.')
         {
@@ -555,8 +575,20 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 new_node.tag = NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(NU_Token_vector, i+1)));
                 new_node.window = NULL; 
                 new_node.vg = NULL;
-                new_node.child_count = 0;
                 new_node.preferred_width = 0.0f;
+                new_node.preferred_height = 0.0f;
+                new_node.gap = 5.0f;
+                new_node.max_width = 10e20f;
+                new_node.min_width = 0.0f;
+                new_node.pad_top = 3;
+                new_node.pad_bottom = 3;
+                new_node.pad_left = 3;
+                new_node.pad_right = 3;
+                new_node.border_top = 1;
+                new_node.border_bottom = 1;
+                new_node.border_left = 1;
+                new_node.border_right = 1;
+                new_node.child_count = 0;
                 new_node.first_child_index = -1;
                 new_node.text_ref_index = -1;
                 new_node.layout_flags = 0;
@@ -566,8 +598,6 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 struct Vector* node_layer = &ui_tree->tree_stack[current_layer+1];
                 Vector_Push(node_layer, &new_node);
                 current_node = (struct Node*) Vector_Get(node_layer, node_layer->size -1);
-
-
                 if (current_layer != -1) // Only equals -1 for the root window node (optimisation would be to remove this check and append root node at beggining of function)
                 {
                     // Inform parent that parent has new child
@@ -579,8 +609,6 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     parentNode->child_count += 1;
                     parentNode->child_capacity += 1;
                 }
-
-                
 
                 // Move one layer deeper
                 current_layer++;
@@ -655,19 +683,14 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 {
                     // Set layout direction
                     case LAYOUT_DIRECTION_PROPERTY:
-
-                        if (c == 'h') {
+                        if (c == 'h') 
                             current_node->layout_flags |= LAYOUT_HORIZONTAL;
-                        }  
-                        else {
+                        else 
                             current_node->layout_flags |= LAYOUT_VERTICAL;
-                        }
-
                         break;
 
                     // Set growth
                     case GROW_PROPERTY:
-
                         switch(c)
                         {
                             case 'v':
@@ -685,29 +708,79 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     
                     // Set overflow behaviour
                     case OVERFLOW_V_PROPERTY:
-
-                        if (c == 's') {
+                        if (c == 's') 
                             current_node->layout_flags |= OVERFLOW_VERTICAL_SCROLL;
-                        }
-
                         break;
                     
                     case OVERFLOW_H_PROPERTY:
-
-                        if (c == 's') {
+                        if (c == 's') 
                             current_node->layout_flags |= OVERFLOW_HORIZONTAL_SCROLL;
-                        }
-
                         break;
                     
+                    // Set preferred width
                     case WIDTH_PROPERTY:
-
                         float width; 
-                        if (Property_Text_To_Float(&width, src_buffer, current_property_text) == 0)
-                        {
+                        if (Property_Text_To_Float(&width, src_buffer, current_property_text) == 0) 
                             current_node->preferred_width = width;
-                        }
+                        break;
 
+                    // Set min width
+                    case MIN_WIDTH_PROPERTY:
+                        float min_width;
+                        if (Property_Text_To_Float(&min_width, src_buffer, current_property_text) == 0) 
+                            current_node->min_width = min_width;
+                        break;
+
+                    // Set max width
+                    case MAX_WIDTH_PROPERTY:
+                        float max_width;
+                        if (Property_Text_To_Float(&max_width, src_buffer, current_property_text) == 0) 
+                            current_node->max_width = max_width;
+                        break;
+
+                    // Set preferred height
+                    case HEIGHT_PROPERTY:
+                        float height;
+                        if (Property_Text_To_Float(&height, src_buffer, current_property_text) == 0) 
+                            current_node->preferred_height = height;
+                        break;
+
+                    // Set min height
+                    case MIN_HEIGHT_PROPERTY:
+                        float min_height;
+                        if (Property_Text_To_Float(&min_height, src_buffer, current_property_text) == 0) 
+                            current_node->min_height = min_height;
+                        break;
+
+                    // Set max height
+                    case MAX_HEIGHT_PROPERTY:
+                        float max_height;
+                        if (Property_Text_To_Float(&max_height, src_buffer, current_property_text) == 0) {
+                            current_node->min_height = max_height;
+                        }
+                        break;
+
+                    // Set horizontal alignment
+                    case ALIGN_H_PROPERTY:
+                        char* ptext = &src_buffer[current_property_text->src_index];
+                        if (memcmp(ptext, "left", 4) == 0) {
+                            current_node->horizontal_alignment = 0;
+                        } else if (memcmp(ptext, "center", 6) == 0) {
+                            current_node->horizontal_alignment = 1;
+                        } else if (memcmp(ptext, "right", 5) == 0) {
+                            current_node->horizontal_alignment = 2;
+                        }
+                        break;
+
+                    // Set vertical alignment
+                    case ALIGN_V_PROPERTY:
+                        if (memcmp(ptext, "left", 4) == 0) {
+                            current_node->vertical_alignment = 0;
+                        } else if (memcmp(ptext, "center", 6) == 0) {
+                            current_node->vertical_alignment = 1;
+                        } else if (memcmp(ptext, "right", 5) == 0) {
+                            current_node->vertical_alignment = 2;
+                        }
                         break;
                         
                     default:
@@ -718,15 +791,12 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 i+=3;
                 continue;
             }
-            else
-            {
+            else {
                 return -1;
             }
         }
-        
         i+= 1;
     }
-
     return 0; // Success
 }
 
@@ -738,25 +808,19 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
 
 int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
 {
-    // Open XML source file
+    // Open XML source file and load into buffer
     FILE* f = fopen(filepath, "r");
-    if (!f) 
-    {
+    if (!f) {
         fprintf(stderr, "Cannot open file '%s': %s\n", filepath, strerror(errno));
         return -1;
     }
-
-    // Determine file size
     fseek(f, 0, SEEK_END);
     long file_size_long = ftell(f);
     fseek(f, 0, SEEK_SET);
-    if (file_size_long > UINT32_MAX) 
-    {
+    if (file_size_long > UINT32_MAX) {
         printf("%s", "Src file is too large! It must be < 4 294 967 295 Bytes");
         return -1;
     }
-
-    // Create a src buffer and calculate the length
     uint32_t src_length = (uint32_t)file_size_long;
     char* src_buffer = malloc(src_length + 1);
     src_length = fread(src_buffer, 1, file_size_long, f);
@@ -765,21 +829,18 @@ int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
 
     // Init Token vector and reserve ~1MB
     struct Vector NU_Token_vector;
-    Vector_Reserve(&NU_Token_vector, sizeof(enum NU_Token), 250000);
-
-    // Init property text reference vector and reserve ~900KB
     struct Vector ptext_ref_vector;
-    Vector_Reserve(&ptext_ref_vector, sizeof(struct Property_Text_Ref), 100000);
 
-    // Init UI tree text arena
+    // Init vectors
+    Vector_Reserve(&NU_Token_vector, sizeof(enum NU_Token), 250000); // reserve ~1MB
+    Vector_Reserve(&ptext_ref_vector, sizeof(struct Property_Text_Ref), 100000); // reserve ~900KB
     Vector_Reserve(&ui_tree->text_arena.free_list, sizeof(struct Arena_Free_Element), 100000); // reserve ~800KB
     Vector_Reserve(&ui_tree->text_arena.text_refs, sizeof(struct Text_Ref), 100000); // reserve ~800KB
     Vector_Reserve(&ui_tree->text_arena.char_buffer, sizeof(char), 1000000); // reserve ~1MB
 
     // Init UI tree layers -> reserve 100 nodes per stack layer = 384KB
     Vector_Reserve(&ui_tree->tree_stack[0], sizeof(struct Node), 1); // 1 root element
-    for (int i=1; i<MAX_TREE_DEPTH; i++) 
-    {
+    for (int i=1; i<MAX_TREE_DEPTH; i++) {
         Vector_Reserve(&ui_tree->tree_stack[i], sizeof(struct Node), 100);
     }
 
@@ -792,7 +853,6 @@ int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
     // Free token and property text reference memory
     Vector_Free(&NU_Token_vector);
     Vector_Free(&ptext_ref_vector);
-
     return 0; // Success
 }
 
