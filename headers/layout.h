@@ -139,7 +139,7 @@ static void NU_Calculate_Text_Fit_Size(struct UI_Tree* ui_tree, struct Node* nod
     nvgTextMetrics(node->vg, &asc, &desc, &lh);
     nvgTextBounds(node->vg, 0, 0, text, text + text_ref->char_count, bounds);
     float text_width = bounds[2] - bounds[0];
-    float text_height = lh - desc;
+    float text_height = lh;
     
     NU_Calculate_Text_Min_Width(ui_tree, node, text_ref);
     
@@ -414,6 +414,8 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, struct Vector
             if (child->layout_flags & GROW_VERTICAL)
             {
                 child->height = remaining_height; 
+                child->height = min(child->height, child->max_height);
+                child->height = max(child->height, child->min_height);
             }
         }
     }
@@ -427,7 +429,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, struct Vector
             else remaining_height -= child->height;
             if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW) growable_count++;
         }
-
+        remaining_height -= (parent->child_count - 1) * parent->gap;
         if (growable_count == 0) return;
 
         while (remaining_height > 0.001f)
@@ -535,7 +537,7 @@ static void NU_Calculate_Text_Wrap_Heights(struct UI_Tree* ui_tree, struct Vecto
         nvgTextMetrics(node->vg, &asc, &desc, &lh);
         NVGtextRow rows[128];
         int nrows;
-        float total_height = -desc;
+        float total_height = 0;
         char* start = text;  // start as a pointer
         while ((nrows = nvgTextBreakLines(node->vg, start, NULL, node->width, rows, 128)) > 0) {
             total_height += nrows * lh;
@@ -716,13 +718,16 @@ void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text, N
     nvgFillColor(vg, nvgRGB(255, 255, 255));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 
+    float asc, desc, lh;
+    nvgTextMetrics(node->vg, &asc, &desc, &lh);
+
     // Compute inner dimensions (content area)
     float inner_width  = node->width  - node->border_left - node->border_right - node->pad_left - node->pad_right;
     float inner_height = node->height - node->border_top  - node->border_bottom - node->pad_top - node->pad_bottom;
 
     // Top-left corner of the content area
     float textPosX = node->x + node->border_left + node->pad_left;
-    float textPosY = node->y + node->border_top  + node->pad_top;
+    float textPosY = node->y + node->border_top  + node->pad_top - desc * 0.5f;
 
     // Draw wrapped text inside inner_width
     nvgTextBox(vg, floorf(textPosX), floorf(textPosY), inner_width, text, NULL);
