@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <math.h>
 
+#include <nu_draw.h>
+
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg.h>
 #include <nanovg_gl.h>
@@ -14,9 +16,12 @@ static void NU_Create_New_Window(struct UI_Tree* ui_tree, struct Node* window_no
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);  
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     SDL_Window* new_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     SDL_GLContext new_gl_context = SDL_GL_CreateContext(new_window);
     SDL_GL_MakeCurrent(new_window, new_gl_context);
+    glEnable(GL_MULTISAMPLE);
     glewInit();
     NVGcontext* new_nano_vg_context = nvgCreateGL3(NVG_STENCIL_STROKES);
     struct Vector font_registry;
@@ -32,6 +37,7 @@ static void NU_Create_New_Window(struct UI_Tree* ui_tree, struct Node* window_no
     Vector_Push(&ui_tree->font_registries, &font_registry);
     window_node->window = new_window;
     window_node->vg = new_nano_vg_context;
+    NU_Draw_Init();
 }
 
 static void NU_Reset_Node_size(struct Node* node)
@@ -780,7 +786,9 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vecto
         for (int n=0; n<window_nodes_list[i].size; n++)
         {
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
-            NU_Draw_Node(node, nano_vg_context);
+
+            // NU_Draw_Node(node, nano_vg_context);
+            Draw_Varying_Rounded_Rect(0, 100, 500, 200, 10, 20, 30, 40, 20, 20, 50, 5, (char)255, (char)50, (char)100, (float)w, (float)h);
 
             if (node->text_ref_index != -1)
             {
@@ -794,6 +802,14 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vecto
             }
         }
 
+        // timer_start();
+        // for (int i=0; i<100000; i++)
+        // {
+        //     Draw_Varying_Rounded_Rect(100, 100, 500, 200, 10, 10, 10, 10, 20, 20, 20, 20, (char)255, (char)100, (char)100, (float)w, (float)h);
+        // }
+        // timer_stop();
+
+
         // Draw a single test rectangle
         nvgBeginPath(nano_vg_context);
         nvgRoundedRect(nano_vg_context, 50, 50, 200, 100, 10);  // x, y, width, height, radius
@@ -804,8 +820,7 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vecto
         SDL_GL_SwapWindow(window); 
     }
 
-    for (int i=0; i<windows->size; i++)
-    {
+    for (int i=0; i<windows->size; i++) {
         Vector_Free(&window_nodes_list[i]);
     }
 }

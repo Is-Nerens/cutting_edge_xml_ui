@@ -7,6 +7,7 @@
 #include "headers/parser.h"
 #include "headers/layout.h"
 #include "headers/resources.h"
+#include <nu_draw.h>
 
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg.h>

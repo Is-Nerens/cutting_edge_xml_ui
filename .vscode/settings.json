@@ -10,6 +10,10 @@
         "performance.h": "c",
         "nanovg.h": "c",
         "layout.h": "c",
-        "glew.h": "c"
+        "glew.h": "c",
+        "xutility": "cpp",
+        "resources.h": "c",
+        "nu_draw.h": "c",
+        "cmath": "c"
     }
 }

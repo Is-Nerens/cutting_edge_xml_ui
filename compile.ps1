@@ -1,3 +1,5 @@
+
+$headersInclude = "headers"
 $sdlLib = "lib\SDL3\lib" 
 $sdlInclude = "lib\SDL3\include"
 $glewInclude = "lib\glew\include"
@@ -11,6 +13,7 @@ $freetypeLib = "lib\freetype\lib"
 # Use nanovg.c instead of nanovg_gl.c
 clang -std=c99 main.c `
 "lib\nanoVG\nanovg.c" `
+-I"$headersInclude" `
 -I"$glewInclude" `
 -I"$sdlInclude" `
 -I"$nanovgInclude" `
