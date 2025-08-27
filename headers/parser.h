@@ -580,10 +580,10 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 new_node.gap = 1.0f;
                 new_node.max_width = 10e20f;
                 new_node.min_width = 0.0f;
-                new_node.pad_top = 8;
-                new_node.pad_bottom = 8;
-                new_node.pad_left = 8;
-                new_node.pad_right = 8;
+                new_node.pad_top = 2;
+                new_node.pad_bottom = 2;
+                new_node.pad_left = 2;
+                new_node.pad_right = 2;
                 new_node.border_top = 1;
                 new_node.border_bottom = 1;
                 new_node.border_left = 1;
