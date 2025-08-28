@@ -588,6 +588,10 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 new_node.border_bottom = 1;
                 new_node.border_left = 1;
                 new_node.border_right = 1;
+                new_node.border_radius_tl = 5;
+                new_node.border_radius_tr = 10;
+                new_node.border_radius_bl = 5;
+                new_node.border_radius_br = 10;
                 new_node.child_count = 0;
                 new_node.first_child_index = -1;
                 new_node.text_ref_index = -1;

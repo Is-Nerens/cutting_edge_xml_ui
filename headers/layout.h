@@ -650,7 +650,7 @@ static void NU_Calculate_Positions(struct UI_Tree* ui_tree)
 
 
 // UI rendering ---------------------------------------------------------
-void NU_Draw_Node(struct Node* node, NVGcontext* vg)
+void NU_Draw_Node(struct Node* node, NVGcontext* vg, float screen_width, float screen_height)
 {
     float inner_width  = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
     float inner_height = node->height - node->border_top - node->border_bottom - node->pad_top - node->pad_bottom;
@@ -665,30 +665,48 @@ void NU_Draw_Node(struct Node* node, NVGcontext* vg)
         default:     fillColor = nvgRGB(100, 150, 120); break;
     }
 
-    nvgBeginPath(vg);
-    nvgRect(vg, node->x, node->y, node->width, node->height); // could be improved with per-corner radii
-    nvgFillColor(vg, fillColor);
-    nvgFill(vg);
+    Draw_Varying_Rounded_Rect(
+        node->x, 
+        node->y, 
+        node->width, 
+        node->height, 
+        node->border_top, 
+        node->border_bottom,
+        node->border_left,
+        node->border_right,
+        node->border_radius_tl,
+        node->border_radius_tr,
+        node->border_radius_bl,
+        node->border_radius_br, 
+        (char)120, (char)140, (char)30,
+        screen_width,
+        screen_height
+    );
 
-    // Optional: draw border
-    NVGcolor borderColor = nvgRGBA(node->border_r, node->border_g, node->border_b, node->border_a);
-    nvgStrokeColor(vg, nvgRGBA(0, 0, 0, 255));
-    nvgStrokeWidth(vg, 1.0f);
-    nvgStroke(vg);
+    // nvgBeginPath(vg);
+    // nvgRect(vg, node->x, node->y, node->width, node->height); // could be improved with per-corner radii
+    // nvgFillColor(vg, fillColor);
+    // nvgFill(vg);
 
-    // Scrollbars if needed
-    if (node->content_height > inner_height && (node->layout_flags & OVERFLOW_VERTICAL_SCROLL)) {
-        nvgBeginPath(vg);
-        nvgRect(vg, node->x + node->width - 12, node->y, 12, inner_height);
-        nvgFillColor(vg, nvgRGB(255,255,255));
-        nvgFill(vg);
-    }
-    if (node->content_width > inner_width && (node->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) {
-        nvgBeginPath(vg);
-        nvgRect(vg, node->x, node->y + node->height - 12, inner_width, 12);
-        nvgFillColor(vg, nvgRGB(255,255,255));
-        nvgFill(vg);
-    }
+    // // Optional: draw border
+    // NVGcolor borderColor = nvgRGBA(node->border_r, node->border_g, node->border_b, node->border_a);
+    // nvgStrokeColor(vg, nvgRGBA(0, 0, 0, 255));
+    // nvgStrokeWidth(vg, 1.0f);
+    // nvgStroke(vg);
+
+    // // Scrollbars if needed
+    // if (node->content_height > inner_height && (node->layout_flags & OVERFLOW_VERTICAL_SCROLL)) {
+    //     nvgBeginPath(vg);
+    //     nvgRect(vg, node->x + node->width - 12, node->y, 12, inner_height);
+    //     nvgFillColor(vg, nvgRGB(255,255,255));
+    //     nvgFill(vg);
+    // }
+    // if (node->content_width > inner_width && (node->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) {
+    //     nvgBeginPath(vg);
+    //     nvgRect(vg, node->x, node->y + node->height - 12, inner_width, 12);
+    //     nvgFillColor(vg, nvgRGB(255,255,255));
+    //     nvgFill(vg);
+    // }
 }
 
 // void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text,NVGcontext* vg)
@@ -787,8 +805,7 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vecto
         {
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
 
-            // NU_Draw_Node(node, nano_vg_context);
-            Draw_Varying_Rounded_Rect(0, 100, 500, 200, 10, 20, 30, 40, 20, 20, 50, 5, (char)255, (char)50, (char)100, (float)w, (float)h);
+            NU_Draw_Node(node, nano_vg_context, (float)w, (float)h);
 
             if (node->text_ref_index != -1)
             {
@@ -808,12 +825,6 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vecto
         //     Draw_Varying_Rounded_Rect(100, 100, 500, 200, 10, 10, 10, 10, 20, 20, 20, 20, (char)255, (char)100, (char)100, (float)w, (float)h);
         // }
         // timer_stop();
-
-
-        // Draw a single test rectangle
-        nvgBeginPath(nano_vg_context);
-        nvgRoundedRect(nano_vg_context, 50, 50, 200, 100, 10);  // x, y, width, height, radius
-        nvgFillColor(nano_vg_context, nvgRGB(255, 0, 0));       // bright red
 
         // Render to window
         nvgEndFrame(nano_vg_context);
