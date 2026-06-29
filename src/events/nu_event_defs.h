@@ -4,25 +4,24 @@
 #define NU_EVENT_FLAG_ON_CLICK              0x01     // 0b0000000000000001
 #define NU_EVENT_FLAG_ON_INPUT_CHANGED      0x02     // 0b0000000000000010
 #define NU_EVENT_FLAG_ON_SCROLL             0x04     // 0b0000000000000100
-#define NU_EVENT_FLAG_ON_RELEASED           0x08     // 0b0000000000001000
-#define NU_EVENT_FLAG_ON_RESIZE             0x10     // 0b0000000000010000
-#define NU_EVENT_FLAG_ON_MOUSE_DOWN         0x20     // 0b0000000000100000
-#define NU_EVENT_FLAG_ON_MOUSE_UP           0x40     // 0b0000000001000000
-#define NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE 0x80     // 0b0000000010000000
-#define NU_EVENT_FLAG_ON_MOUSE_MOVED        0x100    // 0b0000000100000000
-#define NU_EVENT_FLAG_ON_MOUSE_IN           0x200    // 0b0000001000000000
-#define NU_EVENT_FLAG_ON_MOUSE_OUT          0x400    // 0b0000010000000000
-#define NU_EVENT_FLAG_ON_MOUSE_WHEEL        0x800    // 0b0000100000000000
-#define NU_EVENT_FLAG_ON_INPUT_FOCUS        0x1000   // 0b0001000000000000
-#define NU_EVENT_FLAG_ON_INPUT_DEFOCUS      0x2000   // 0b0010000000000000
-#define NU_EVENT_FLAG_ON_KEY_DOWN           0x4000   // 0b0100000000000000
-#define NU_EVENT_FLAG_ON_KEY_UP             0x8000   // 0b1000000000000000
+#define NU_EVENT_FLAG_ON_RESIZE             0x08     // 0b0000000000001000
+#define NU_EVENT_FLAG_ON_MOUSE_DOWN         0x10     // 0b0000000000010000
+#define NU_EVENT_FLAG_ON_MOUSE_UP           0x20     // 0b0000000000100000
+#define NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE 0x40     // 0b0000000001000000
+#define NU_EVENT_FLAG_ON_MOUSE_MOVED        0x80     // 0b0000000010000000
+#define NU_EVENT_FLAG_ON_MOUSE_IN           0x100    // 0b0000000100000000
+#define NU_EVENT_FLAG_ON_MOUSE_OUT          0x200    // 0b0000001000000000
+#define NU_EVENT_FLAG_ON_MOUSE_WHEEL        0x400    // 0b0000010000000000
+#define NU_EVENT_FLAG_ON_INPUT_FOCUS        0x800    // 0b0000100000000000
+#define NU_EVENT_FLAG_ON_INPUT_DEFOCUS      0x1000   // 0b0001000000000000
+#define NU_EVENT_FLAG_ON_KEY_DOWN           0x2000   // 0b0010000000000000
+#define NU_EVENT_FLAG_ON_KEY_UP             0x4000   // 0b0100000000000000
+#define NU_EVENT_FLAG_ON_TYPE               0x8000   // 0b1000000000000000
  
 enum NU_Event_Type
 {
     NU_EVENT_ON_CLICK,
     NU_EVENT_ON_INPUT_CHANGED,
-    NU_EVENT_ON_RELEASED,
     NU_EVENT_ON_RESIZE,
     NU_EVENT_ON_MOUSE_DOWN,
     NU_EVENT_ON_MOUSE_UP,
@@ -35,7 +34,8 @@ enum NU_Event_Type
     NU_EVENT_ON_INPUT_DEFOCUS,
     NU_EVENT_ON_SCROLL,
     NU_EVENT_ON_KEY_DOWN,
-    NU_EVENT_ON_KEY_UP
+    NU_EVENT_ON_KEY_UP,
+    NU_EVENT_ON_TYPE
 };
 
 typedef struct NU_Event_Info_Mouse
@@ -54,9 +54,13 @@ typedef struct NU_Event_Info_Input
 typedef struct NU_Event_Info_Keypress
 {
     enum NU_Keycode keycode;
-    int repeat;
+    bool repeat;
 } NU_Event_Info_Keypress;
 
+typedef struct NU_Event_Info_Type
+{
+    char text[5];
+} NU_Event_Info_Type;
 
 typedef struct NU_Event
 {
@@ -64,6 +68,7 @@ typedef struct NU_Event
     NU_Event_Info_Mouse mouse;
     NU_Event_Info_Input input;
     NU_Event_Info_Keypress keypress;
+    NU_Event_Info_Type type;
 } NU_Event;
 
 typedef void (*NU_Callback)(NU_Event event, void* args);
@@ -93,6 +98,7 @@ typedef struct EventSystem {
     Hashmap on_input_defocus_events;
     Hashmap on_key_down_events;
     Hashmap on_key_up_events;
+    Hashmap on_type_events;
 } EventSystem;
 
 // ----------------------------
@@ -141,3 +147,5 @@ void TriggerAllMouseDownOutsideEvents(float mouseX, float mouseY, int mouseBtn);
 void TriggerAllOnKeyDownEvents(SDL_Keycode keycode, bool repeat);
 
 void TriggerAllOnKeyUpEvents(SDL_Keycode keycode, bool repeat);
+
+void TriggerAllOnTypeEvents(const char* text);

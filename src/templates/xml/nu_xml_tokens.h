@@ -1,8 +1,7 @@
 #pragma once 
 
 #define XML_PROPERTY_FIRST ID_PROPERTY
-#define XML_PROPERTY_LAST IMPORT_SRC_PROPERTY
-
+#define XML_PROPERTY_LAST TITLE_PROPERTY
 #define XML_TAG_FIRST WINDOW_TAG
 #define XML_TAG_LAST IMPORT_TAG
 
@@ -18,7 +17,7 @@ const char* nu_xml_keywords[] = {
     "padding", "padding-top", "padding-bottom", "padding-left", "padding-right",
     "image-src",
     "input-type",
-    "src",
+    "src", "title",
 
     "window", "box", "button",
     "input", "canvas", "image",
@@ -48,6 +47,7 @@ typedef enum NU_XML_TOKEN
     BORDER_RADIUS_PROPERTY, BORDER_TOP_LEFT_RADIUS_PROPERTY, BORDER_TOP_RIGHT_RADIUS_PROPERTY, BORDER_BOTTOM_LEFT_RADIUS_PROPERTY, BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY,
     PADDING_PROPERTY, PADDING_TOP_PROPERTY, PADDING_BOTTOM_PROPERTY, PADDING_LEFT_PROPERTY, PADDING_RIGHT_PROPERTY,
     IMAGE_SOURCE_PROPERTY, INPUT_TYPE_PROPERTY, IMPORT_SRC_PROPERTY,
+    TITLE_PROPERTY,
 
     // Tags
     WINDOW_TAG,

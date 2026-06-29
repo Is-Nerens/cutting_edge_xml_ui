@@ -54,7 +54,6 @@ enum NU_Event_Type
 {
     NU_EVENT_ON_CLICK,
     NU_EVENT_ON_INPUT_CHANGED,
-    NU_EVENT_ON_RELEASED,
     NU_EVENT_ON_RESIZE,
     NU_EVENT_ON_MOUSE_DOWN,
     NU_EVENT_ON_MOUSE_UP,
@@ -67,7 +66,8 @@ enum NU_Event_Type
     NU_EVENT_ON_INPUT_DEFOCUS,
     NU_EVENT_ON_SCROLL,
     NU_EVENT_ON_KEY_DOWN,
-    NU_EVENT_ON_KEY_UP
+    NU_EVENT_ON_KEY_UP,
+    NU_EVENT_ON_TYPE
 };
 
 enum NU_Keycode
@@ -262,8 +262,13 @@ typedef struct NU_Event_Info_Input
 typedef struct NU_Event_Info_Keypress
 {
     enum NU_Keycode keycode;
-    int repeat;
+    bool repeat;
 } NU_Event_Info_Keypress;
+
+typedef struct NU_Event_Info_Type
+{
+    char text[5];
+} NU_Event_Info_Type;
 
 typedef struct NU_Event
 {
@@ -271,6 +276,7 @@ typedef struct NU_Event
     NU_Event_Info_Mouse mouse;
     NU_Event_Info_Input input;
     NU_Event_Info_Keypress keypress;
+    NU_Event_Info_Type type;
 } NU_Event;
 
 typedef void (*NU_Callback)(NU_Event event, void* args);
@@ -325,6 +331,7 @@ __declspec(dllimport) Node* NU_HOVERED_NODE();
 __declspec(dllimport) inline void NU_SHOW(Node* node);
 __declspec(dllimport) inline void NU_HIDE(Node* node);
 __declspec(dllimport) int NU_IS_SHOWN(Node* node);
+__declspec(dllimport) void NU_SET_WINDOW_TITLE(Node* windowNode, const char* title);
 __declspec(dllimport) Node* NU_Get_Node_By_Id(const char* id);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Class(char* const class);
 __declspec(dllimport) NU_Nodelist NU_Get_Descendents_With_Class(Node* node, char* const class);
@@ -417,6 +424,26 @@ __declspec(dllimport) float NU_Text_Height(
 __declspec(dllimport) float NU_Text_Width(
     int contextID,
     const char* string
+);
+
+__declspec(dllimport) void NU_LText(
+    int contextID,
+    float x, float y, float wrapWidth,
+    NU_RGB col, const char* string,
+    size_t stringLen
+);
+
+__declspec(dllimport) float NU_LText_Height(
+    int contextID,
+    float wrapWidth,
+    const char* string,
+    size_t stringLen
+);
+
+__declspec(dllimport) float NU_LText_Width(
+    int contextID,
+    const char* string,
+    size_t stringLen
 );
 
 __declspec(dllimport) float NU_Text_Line_Height(int contextID);

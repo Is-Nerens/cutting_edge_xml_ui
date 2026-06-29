@@ -1,5 +1,6 @@
 #pragma once
 #include <freetype/freetype.h>
+#include <freetype/ftmm.h>
 #include "nu_default_font.h"
 
 FT_Library nu_global_freetype;
@@ -34,7 +35,7 @@ typedef struct NU_Font
     FT_Face face;
     Array Ascii_Glyphs;
     Hashmap UTF8_Glyphs;
-    int height_pixels;
+    int heightPixels;
     int fontWeight;
     float y_max;
     float y_min;
@@ -44,7 +45,7 @@ typedef struct NU_Font
     FT_Int32 loadFlags;
     FT_Int32 renderFlags;
     NU_Font_Atlas atlas;
-    bool subpixel_rendering;
+    bool subpixelRendering;
 } NU_Font;
 
 void NU_Font_Atlas_Create(NU_Font_Atlas* atlas, int width, int height, int channels)
@@ -143,24 +144,51 @@ void NU_Font_Atlas_Upload_Or_Modify_GPU(NU_Font_Atlas* atlas)
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int height_pixels, bool subpixel_rendering)
+int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int heightPixels, int fontWeight, bool subpixelRendering)
 {
-    height_pixels = min(height_pixels, 256);
-    font->subpixel_rendering = subpixel_rendering;
+    heightPixels = min(heightPixels, 256);
+    font->subpixelRendering = subpixelRendering;
 
     int channels = 1;
     font->loadFlags = FT_LOAD_DEFAULT | FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_LIGHT;
     font->renderFlags = FT_RENDER_MODE_NORMAL;
-    if (font->subpixel_rendering) {
+    if (font->subpixelRendering) {
         channels = 3;
         font->loadFlags |= FT_LOAD_TARGET_LCD;
         font->renderFlags = FT_RENDER_MODE_LCD;
     }
 
-    // Update height pixels
-    FT_Set_Pixel_Sizes(face, 0, (FT_UInt)height_pixels);
+    // Set font height
+    FT_Set_Pixel_Sizes(face, 0, (FT_UInt)heightPixels);
+
+    // Set font weight (if variable font)
+    if (face->face_flags & FT_FACE_FLAG_MULTIPLE_MASTERS) {
+        FT_MM_Var* mm = NULL;
+        if (FT_Get_MM_Var(face, &mm) == 0) {
+            // Allocate coords for ALL axes
+            FT_Fixed* coords = (FT_Fixed*)malloc(mm->num_axis * sizeof(FT_Fixed));
+
+            // Get current design coordinates first
+            FT_Get_Var_Design_Coordinates(face, mm->num_axis, coords);
+
+            for (int i = 0; i < mm->num_axis; i++) {
+                if (mm->axis[i].tag == FT_MAKE_TAG('w','g','h','t')) {
+                    FT_Var_Axis* axis = &mm->axis[i];
+                    float t = (fontWeight - 100.0f) / 800.0f;
+                    t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+                    coords[i] = axis->minimum + (FT_Fixed)((axis->maximum - axis->minimum) * t);
+                    break;
+                }
+            }
+
+            FT_Set_Var_Design_Coordinates(face, mm->num_axis, coords);
+            free(coords);
+            FT_Done_MM_Var(face->glyph->library, mm);
+        }
+    }
+
     FT_Size_Metrics* metrics = &face->size->metrics;
-    font->height_pixels = metrics->height >> 6;
+    font->heightPixels = metrics->height >> 6;
     font->y_max         = (float)(face->bbox.yMax >> 6);
     font->y_min         = (float)(face->bbox.yMin >> 6);
     font->ascent        = (float)(face->size->metrics.ascender >> 6);
@@ -211,7 +239,7 @@ NU_Glyph* NU_Add_Uncached_Glyph(NU_Font* font, u32 codepoint)
     FT_Bitmap* bmp = &font->face->glyph->bitmap;
 
     int channels = 1;
-    if (font->subpixel_rendering) channels = 3;
+    if (font->subpixelRendering) channels = 3;
 
     // Store glyph metrics
     NU_Glyph glyph;
@@ -229,7 +257,7 @@ NU_Glyph* NU_Add_Uncached_Glyph(NU_Font* font, u32 codepoint)
     return stored_glyph;
 }
 
-int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool subpixel_rendering)
+int NU_Font_Create(NU_Font* font, const char* filepath, int heightPixels, int fontWeight, bool subpixelRendering)
 {
     FT_Face face;
     FT_Error error = FT_New_Face(nu_global_freetype, filepath, 0, &face);
@@ -237,10 +265,10 @@ int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool 
         return 0;
     }
 
-    return NU_Create_Font_From_Face(font, face, height_pixels, subpixel_rendering);
+    return NU_Create_Font_From_Face(font, face, heightPixels, fontWeight, subpixelRendering);
 }
 
-int NU_Font_Create_Default(NU_Font* font, int height_pixels, bool subpixel_rendering)
+int NU_Font_Create_Default(NU_Font* font, int heightPixels, int fontWeight, bool subpixelRendering)
 {
     FT_Face face;
     FT_Error error = FT_New_Memory_Face(nu_global_freetype, (unsigned char*)nu_default_ttf, nu_default_ttf_len, 0, &face);
@@ -248,7 +276,7 @@ int NU_Font_Create_Default(NU_Font* font, int height_pixels, bool subpixel_rende
         return 0;
     }
     
-    return NU_Create_Font_From_Face(font, face, height_pixels, subpixel_rendering);
+    return NU_Create_Font_From_Face(font, face, heightPixels, fontWeight, subpixelRendering);
 }
 
 void NU_Font_Free(NU_Font* font)

@@ -131,7 +131,7 @@ void NU_Mouse_Hover()
     GUI.prev_hovered_node = GUI.hovered_node;
     GUI.hovered_node = NULL;
     GUI.scroll_hovered_node = NULL;
-    if (GUI.winManager.hoveredWindowID == -1) return;
+    if (!GUI.winManager.hoveredWindowNode) return;
 
     // Get local mouse coords
     float mouseX, mouseY; GetLocalMouseCoords(&GUI.winManager, &mouseX, &mouseY);
@@ -143,19 +143,13 @@ void NU_Mouse_Hover()
     // Add absolute root nodes to stack
     for (u32 i=0; i<GUI.winManager.absoluteRootNodes.size; i++) {
         NodeP* absolute_node = *(NodeP**)Array_Get(&GUI.winManager.absoluteRootNodes, i);
-        if (absolute_node->windowID == GUI.winManager.hoveredWindowID && NU_MouseIsOverNode(absolute_node, mouseX, mouseY)) {
+        if (absolute_node->windowID == GUI.winManager.hoveredWindowNode->windowID && NU_MouseIsOverNode(absolute_node, mouseX, mouseY)) {
             Array_Push(&stack, &absolute_node);
         }
     }
 
-    // Add window root nodes to stack
-    for (u32 i=0; i<GUI.winManager.windowNodes.size; i++) {
-        NodeP* node = *(NodeP**)Array_Get(&GUI.winManager.windowNodes, i);
-        if (node->windowID == GUI.winManager.hoveredWindowID){
-            Array_Push(&stack, &node);
-            break;
-        }
-    }
+    // Add hovered window node to stack
+    Array_Push(&stack, &GUI.winManager.hoveredWindowNode);
 
     // traverse the tree
     bool break_loop = false;

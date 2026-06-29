@@ -117,35 +117,39 @@ bool EventWatcher(void* data, SDL_Event* event)
     // --- Type text ----------------------------------------------------------------------
     // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_TEXT_INPUT) {
-
-        NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
-        InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
         
-        int updated = 0;
-        if (InputText_IsHighlighting(inputText)) {
-            InputText_RemoveHighlightedText(inputText, GUI.focused_node, font);
-            InputText_Write(inputText, GUI.focused_node, font, event->text.text);
-            updated = 1;
-        }
-        else {
-            updated = InputText_Write(inputText, GUI.focused_node, font, event->text.text);
-        }
+        TriggerAllOnTypeEvents(event->text.text);
         
-        if (updated) {
-            TriggerOnInputChangedEvent(GUI.focused_node, event->text.text);
-            NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_FOCUS);
-        }
+        if (GUI.focused_node != NULL) {
+            NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
+            InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
+            
+            int updated = 0;
+            if (InputText_IsHighlighting(inputText)) {
+                InputText_RemoveHighlightedText(inputText, GUI.focused_node, font);
+                InputText_Write(inputText, GUI.focused_node, font, event->text.text);
+                updated = 1;
+            }
+            else {
+                updated = InputText_Write(inputText, GUI.focused_node, font, event->text.text);
+            }
+            
+            if (updated) {
+                TriggerOnInputChangedEvent(GUI.focused_node, event->text.text);
+                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_FOCUS);
+            }
 
-        GUI.awaiting_redraw |= updated;
-    }
+            GUI.awaiting_redraw |= updated;
+        }
+    }   
     // ------------------------------------------------------------------------------------
     // --- Move mouse -> redraw if mouse moves off hovered node ---------------------------
     // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_MOTION)
-    {
+    {       
         // update hovered window
-        SetHoveredWindowID(&GUI.winManager, SDL_GetWindowFromID(event->window.windowID));
-
+        WindowManager_SetHoveredWindow(&GUI.winManager, SDL_GetWindowFromID(event->window.windowID));
+        
         NU_Mouse_Hover();
 
         // get local mouse coordinates
@@ -205,14 +209,14 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
     {
         // If mouse hasn't moved yet the hovered window and node will not have been set -> set both of these
-        if (GUI.winManager.hoveredWindowID == -1) {
-            SetHoveredWindowID(&GUI.winManager, SDL_GetWindowFromID(event->window.windowID));
+        if (!GUI.winManager.hoveredWindowNode) {
+            WindowManager_SetHoveredWindow(&GUI.winManager, SDL_GetWindowFromID(event->window.windowID));
         }
 
         // Get mouse down coordinates
         int win_x, win_y; 
         SDL_GetGlobalMouseState(&GUI.mouseDownGlobalX, &GUI.mouseDownGlobalY);
-        SDL_GetWindowPosition(GetSDL_Window(&GUI.winManager, GUI.winManager.hoveredWindowID), &win_x, &win_y);
+        SDL_GetWindowPosition(GetSDL_Window(&GUI.winManager, GUI.winManager.hoveredWindowNode->windowID), &win_x, &win_y);
         float mouseX = GUI.mouseDownGlobalX - win_x;
         float mouseY = GUI.mouseDownGlobalY - win_y;
 
@@ -254,7 +258,6 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             if (GUI.focused_node != prevFocusedNode) {
                 InputText_MousePlaceCursor(inputText, GUI.focused_node, font, mouseX);
-                SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
 
                 // Trigger focus event
                 TriggerOnInputFocusEvent(GUI.focused_node);
@@ -281,12 +284,6 @@ bool EventWatcher(void* data, SDL_Event* event)
             GUI.awaiting_redraw = true;
         }
 
-        if (!(GUI.focused_node))
-        {
-            // Disable text typing events
-            SDL_StopTextInput(SDL_GetWindowFromID(event->window.windowID));
-        }
-
         // Apply PRESS pseudo style
         if (GUI.mouse_down_node && GUI.mouse_down_node != GUI.focused_node) {
             NU_Apply_Pseudo_Style_To_Node(GUI.mouse_down_node, &GUI.stylesheet, PSEUDO_PRESS);
@@ -305,10 +302,10 @@ bool EventWatcher(void* data, SDL_Event* event)
         SDL_GetGlobalMouseState(&GUI.mouseDownGlobalX, &GUI.mouseDownGlobalY);
 
         // Trigger all mouse up events
-        if (GUI.winManager.hoveredWindowID != -1)
+        if (GUI.winManager.hoveredWindowNode)
         {
             int win_x, win_y; 
-            SDL_GetWindowPosition(GetSDL_Window(&GUI.winManager, GUI.winManager.hoveredWindowID), &win_x, &win_y);
+            SDL_GetWindowPosition(GetSDL_Window(&GUI.winManager, GUI.winManager.hoveredWindowNode->windowID), &win_x, &win_y);
             float mouseX = GUI.mouseDownGlobalX - win_x;
             float mouseY = GUI.mouseDownGlobalY - win_y;
             TriggerAllMouseupEvents(mouseX, mouseY, (int)event->button.button);
@@ -325,7 +322,7 @@ bool EventWatcher(void* data, SDL_Event* event)
                 // Get mouse up coordinates
                 int win_x, win_y; 
                 SDL_GetGlobalMouseState(&GUI.mouseDownGlobalX, &GUI.mouseDownGlobalY);
-                SDL_GetWindowPosition(GetSDL_Window(&GUI.winManager, GUI.winManager.hoveredWindowID), &win_x, &win_y);
+                SDL_GetWindowPosition(GetSDL_Window(&GUI.winManager, GUI.winManager.hoveredWindowNode->windowID), &win_x, &win_y);
                 float mouseX = GUI.mouseDownGlobalX - win_x;
                 float mouseY = GUI.mouseDownGlobalY - win_y;
 

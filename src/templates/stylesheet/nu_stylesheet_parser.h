@@ -486,7 +486,7 @@ int FontLoaderThread(void* data)
 
     for (int i=batch->start; i<batch->end; i++) {
         FontLoadJob* job = &batch->jobs[i];
-        NU_Font_Create(job->font, StringCstr(job->filepath), job->fontSize, true);
+        NU_Font_Create(job->font, StringCstr(job->filepath), job->fontSize, job->fontWeight, true);
     }
 
     return 0;
@@ -1299,7 +1299,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
     // No fonts loaded -> default load embedded font
     if (ss->fonts.size == 0) {
         NU_Font font; 
-        if (NU_Font_Create_Default(&font, 14, true)) Container_Add(&ss->fonts, &font); // FontID will be 0
+        if (NU_Font_Create_Default(&font, 14, 400, true)) Container_Add(&ss->fonts, &font); // FontID will be 0
         else succeeded = 0;
     }
 

@@ -888,12 +888,7 @@ void NU_Internal_Text(
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return;
-
-    // Skip if text is not visible on large virtual canvas
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
-    float textWidth = NU_Calculate_Text_Unwrapped_Width(font, string); if (textWidth > wrapWidth) textWidth = wrapWidth;
-    float textHeight = NU_Calculate_FreeText_Height_From_Wrap_Width(font, string, wrapWidth);
-    if (x > ctx->canvasWidth || x + textWidth < 0.0f || y > ctx->canvasHeight || y + textHeight < 0.0f) return;
 
     // Switching from shape -> text, increase depth
     if (ctx->isShapeLayer) {
@@ -930,6 +925,56 @@ float NU_Internal_Text_Width(int contextID, const char* string)
 
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
     return NU_Calculate_Text_Unwrapped_Width(font, string);
+}
+
+void NU_Internal_LText(
+    int contextID, 
+    float x, 
+    float y, 
+    float wrapWidth, 
+    NU_RGB col,
+    const char* string,
+    size_t stringLen)
+{
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    if (ctx == NULL) return;
+    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+
+    // Switching from shape -> text, increase depth
+    if (ctx->isShapeLayer) {
+        ctx->isShapeLayer = false;
+        ctx->z++;
+    }
+
+    // Get text layer
+    CanvasTextLayer* textLayer = Array_Get(&ctx->textLayers, ctx->textLayerIndex);
+
+    // Get vertex and index lists
+    Vertex_RGB_UV_List* vertices = &textLayer->vertices;
+    Index_List* indices = &textLayer->indices;
+
+    float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
+
+    // Generate text mesh
+    NU_Generate_LText_Mesh(vertices, indices, font, string, stringLen, x, y, z, col.r, col.g, col.b, wrapWidth);
+}
+
+float NU_Internal_LText_Height(int contextID, float wrapWidth, const char* string, size_t stringLen)
+{
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
+
+    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+    return NU_Calculate_LText_Height_From_Wrap_Width(font, string, stringLen, wrapWidth);
+}
+
+float NU_Internal_LText_Width(int contextID, const char* string, size_t stringLen)
+{
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
+
+    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+    return NU_Calculate_LText_Unwrapped_Width(font, string, stringLen);
 }
 
 float NU_Internal_Codepoint_Width(int contextID, u32 codepoint)

@@ -7,7 +7,6 @@ void EventSystem_Init()
     Hashmap_Init(&GUI.eventSystem.on_click_events,              sizeof(Node*), sizeof(struct NU_Callback_Info), 128);
     Hashmap_Init(&GUI.eventSystem.on_input_changed_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     Hashmap_Init(&GUI.eventSystem.on_scroll_events,             sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_released_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     Hashmap_Init(&GUI.eventSystem.on_resize_events,             sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     Hashmap_Init(&GUI.eventSystem.node_resize_tracking,         sizeof(Node*), sizeof(NU_NodeDimensions)      , 10);
     Hashmap_Init(&GUI.eventSystem.on_mouse_down_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
@@ -21,6 +20,7 @@ void EventSystem_Init()
     Hashmap_Init(&GUI.eventSystem.on_input_defocus_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     Hashmap_Init(&GUI.eventSystem.on_key_down_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     Hashmap_Init(&GUI.eventSystem.on_key_up_events,             sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    Hashmap_Init(&GUI.eventSystem.on_type_events,               sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
 }
 
 void EventSystem_Free()
@@ -28,7 +28,6 @@ void EventSystem_Free()
     Hashmap_Free(&GUI.eventSystem.on_click_events);
     Hashmap_Free(&GUI.eventSystem.on_input_changed_events);
     Hashmap_Free(&GUI.eventSystem.on_scroll_events);
-    Hashmap_Free(&GUI.eventSystem.on_released_events);
     Hashmap_Free(&GUI.eventSystem.on_resize_events);
     Hashmap_Free(&GUI.eventSystem.node_resize_tracking);
     Hashmap_Free(&GUI.eventSystem.on_mouse_down_events);
@@ -42,6 +41,7 @@ void EventSystem_Free()
     Hashmap_Free(&GUI.eventSystem.on_input_defocus_events);
     Hashmap_Free(&GUI.eventSystem.on_key_down_events);
     Hashmap_Free(&GUI.eventSystem.on_key_up_events);
+    Hashmap_Free(&GUI.eventSystem.on_type_events);
 }
 
 
@@ -65,10 +65,6 @@ void NU_Internal_Register_Event(Node* node, void* args, NU_Callback callback, en
         case NU_EVENT_ON_SCROLL:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_SCROLL;
             Hashmap_Set(&GUI.eventSystem.on_scroll_events, &node, &cb_info);
-            break;
-        case NU_EVENT_ON_RELEASED:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_RELEASED;
-            Hashmap_Set(&GUI.eventSystem.on_released_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_RESIZE:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_RESIZE;
@@ -120,6 +116,10 @@ void NU_Internal_Register_Event(Node* node, void* args, NU_Callback callback, en
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_KEY_UP;
             Hashmap_Set(&GUI.eventSystem.on_key_up_events, &node, &cb_info);
             break;
+        case NU_EVENT_ON_TYPE:
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_TYPE;
+            Hashmap_Set(&GUI.eventSystem.on_type_events, &node, &cb_info);
+            break;
     }
 }
 
@@ -133,9 +133,6 @@ void NU_Unregister_All_Non_Iterated_Events(NodeP* node)
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_SCROLL) {
         Hashmap_Delete(&GUI.eventSystem.on_scroll_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_RELEASED) {
-        Hashmap_Delete(&GUI.eventSystem.on_released_events, &node->node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN) {
         Hashmap_Delete(&GUI.eventSystem.on_mouse_down_events, &node->node);
@@ -180,6 +177,9 @@ void NU_Unregister_All_Iterated_Events(NodeP* node)
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_KEY_UP) {
         Hashmap_Delete(&GUI.eventSystem.on_input_defocus_events, &node->node);
+    }
+    if (node->eventFlags & NU_EVENT_FLAG_ON_TYPE) {
+        Hashmap_Delete(&GUI.eventSystem.on_type_events, &node->node);
     }
 }
 
@@ -294,7 +294,7 @@ void TriggerOnInputChangedEvent(NodeP* nodeP, const char* text)
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_input_changed_events, &node);
         if (found_cb != NULL) {
             struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-            strcpy(cb_info->event.input.text, "");
+            strcpy(cb_info->event.input.text, text);
             cb_info->callback(cb_info->event, cb_info->args);
         }
     }
@@ -506,6 +506,31 @@ void TriggerAllOnKeyUpEvents(SDL_Keycode keycode, bool repeat)
             // Set calback event values and trigger
             cb_info->event.keypress.keycode = keycode;
             cb_info->event.keypress.repeat = repeat;
+            cb_info->callback(cb_info->event, cb_info->args);
+        }
+    }
+}
+
+void TriggerAllOnTypeEvents(const char* text)
+{
+    if (GUI.eventSystem.on_type_events.itemCount > 0)
+    {
+        Hashmap* hmap = &GUI.eventSystem.on_type_events;
+        HashmapIterator it = Hashmap_CreateIterator(hmap);
+        void* key; void* val;
+
+        while(Hashmap_IteratorNext(&it, &key, &val))
+        {
+            // Cast key, value to correct types
+            Node* node = *(Node**)key;
+            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+
+            // Skip if node was recently deleted
+            NodeP* nodeP = NODEP_OF(node);
+            if (NodeStateDeleted(nodeP)) continue;
+
+            // Set calback event values and trigger
+            strcpy(cb_info->event.type.text, text);
             cb_info->callback(cb_info->event, cb_info->args);
         }
     }

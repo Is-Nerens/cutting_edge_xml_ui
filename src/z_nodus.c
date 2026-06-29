@@ -19,7 +19,7 @@ __declspec(dllexport) int NU_Running(void) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {}
 
-    if (GUI.awaiting_redraw) 
+    if (GUI.awaiting_redraw)
     {
         NU_Layout();
         NU_Mouse_Hover();
@@ -41,12 +41,12 @@ __declspec(dllexport) int NU_Running(void) {
     return 1;
 }
 
-__declspec(dllexport) void NU_Render() 
+__declspec(dllexport) void NU_Render()
 {
     SDL_Event e;
     SDL_zero(e);
     e.type = GUI.SDL_CUSTOM_RENDER_EVENT;
-    SDL_PushEvent(&e);   
+    SDL_PushEvent(&e);
 }
 
 // -----------------------
@@ -180,7 +180,7 @@ __declspec(dllexport) int NU_CHILD_COUNT(Node* node) {
 }
 
 __declspec(dllexport) Node* NU_CREATE_NODE(Node* parent, NodeType type) {
-    if (parent == NULL || type == NU_WINDOW) return NULL; // Nodus doesn't yet support window creation
+    if (parent == NULL) return NULL;
     NodeP* parentP = NODEP_OF(parent);
     NodeP* node = TreeCreateNode(&GUI.tree, parentP, type);
 
@@ -188,6 +188,9 @@ __declspec(dllexport) Node* NU_CREATE_NODE(Node* parent, NodeType type) {
         InputText inputText;
         InputText_Init(&inputText);
         node->typeData.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
+    }
+    else if (type == NU_WINDOW) {
+        CreateSubwindow(&GUI.winManager, node);
     }
 
     NU_Apply_Stylesheet_To_Node(node, &GUI.stylesheet);
@@ -241,7 +244,7 @@ __declspec(dllexport) void NU_FOCUS_ON_INPUT(Node* node) {
 
 
     if (GUI.focused_node != prevFocusedNode)
-    {   
+    {
         // Defocus prev focused input node
         if (prevFocusedNode != NULL)
         {
@@ -261,7 +264,7 @@ __declspec(dllexport) void NU_FOCUS_ON_INPUT(Node* node) {
             }
         }
 
-        // Focus on input node 
+        // Focus on input node
         NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_FOCUS);
         NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
         InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
@@ -297,6 +300,13 @@ __declspec(dllexport) int NU_IS_SHOWN(Node* node) {
     return !(nodeP->layoutFlags & HIDDEN);
 }
 
+__declspec(dllexport) void NU_SET_WINDOW_TITLE(Node* windowNode, const char* title) {
+    NodeP* nodeP = NODEP_OF(windowNode);
+    if (nodeP->type != NU_WINDOW) return;
+    SDL_Window* window = GetSDL_Window(&GUI.winManager, nodeP->windowID);
+    SDL_SetWindowTitle(window, title);
+}
+
 __declspec(dllexport) Node* NU_Get_Node_By_Id(const char* id) {
     void* found = Stringmap_Get(&GUI.id_node_map, id);
     if (found == NULL) return NULL;
@@ -305,7 +315,7 @@ __declspec(dllexport) Node* NU_Get_Node_By_Id(const char* id) {
 }
 
 __declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Class(const char* class) {
-    
+
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
     DepthFirstSearch dfs = DepthFirstSearch_Create(GUI.tree.root);
@@ -405,9 +415,9 @@ __declspec(dllexport) void NU_Set_Class(Node* node, const char* class) {
         if (style_class_get) {
             nodeP->class = Stringset_Add(&GUI.class_string_set, class);
         }
-    } 
+    }
     else {
-        nodeP->class = gui_class_get; 
+        nodeP->class = gui_class_get;
     }
 
     // Update styling
@@ -425,10 +435,10 @@ __declspec(dllexport) void NU_Set_Class(Node* node, const char* class) {
 // --- Event functions ---
 // -----------------------
 __declspec(dllexport) void NU_Register_Event(
-  Node* node, 
+  Node* node,
   void* args,
-  NU_Callback callback, 
-  enum NU_Event_Type event_type) 
+  NU_Callback callback,
+  enum NU_Event_Type event_type)
 {
     NU_Internal_Register_Event(node, args, callback, event_type);
 }
@@ -441,7 +451,7 @@ __declspec(dllexport) int64_t NU_Get_Canvas_Ctx(Node* canvasNode)
     return NU_Internal_Get_Canvas_Context(canvasNode);
 }
 
-__declspec(dllexport) void NU_Clear_Canvas(int contextID) 
+__declspec(dllexport) void NU_Clear_Canvas(int contextID)
 {
     NU_Internal_Clear_Canvas(contextID);
 }
@@ -461,31 +471,31 @@ __declspec(dllexport) NU_RGB NU_RGB_From_Hex(const char* hex)
 
 __declspec(dllexport) void NU_Border_Rect(
     int contextID,
-    float x, float y, float w, float h, 
+    float x, float y, float w, float h,
     float thickness,
     NU_RGB border_col,
-    NU_RGB fill_col) 
+    NU_RGB fill_col)
 {
     NU_Internal_Border_Rect(contextID, x, y, w, h, thickness, border_col, fill_col);
 }
 
 __declspec(dllexport) void NU_Triangle(
     int contextID,
-    float x1, float y1, 
-    float x2, float y2, 
+    float x1, float y1,
+    float x2, float y2,
     float x3, float y3,
     float thickness,
     NU_RGB border_col,
     NU_RGB fill_col)
 {
     NU_Internal_Triangle(contextID, x1, y1, x2, y2, x3, y3, thickness, border_col, fill_col);
-} 
+}
 
 __declspec(dllexport) void NU_Vline(
     int contextID,
     float x, float y, float height,
     float thickness,
-    NU_RGB col) 
+    NU_RGB col)
 {
     NU_Internal_Vline(contextID, x, y, height, thickness, col);
 }
@@ -494,7 +504,7 @@ __declspec(dllexport) void NU_Hline(
     int contextID,
     float x, float y, float width,
     float thickness,
-    NU_RGB col) 
+    NU_RGB col)
 {
     NU_Internal_Hline(contextID, x, y, width, thickness, col);
 }
@@ -503,7 +513,7 @@ __declspec(dllexport) void NU_Line(
     int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
-    NU_RGB col) 
+    NU_RGB col)
 {
     NU_Internal_Line(contextID, x1, y1, x2, y2, thickness, col);
 }
@@ -514,12 +524,12 @@ __declspec(dllexport) void NU_Dashed_Line(
     float thickness,
     u8* dash_pattern,
     u32 dash_pattern_len,
-    NU_RGB col) 
+    NU_RGB col)
 {
     NU_Internal_Dashed_Line(
-        contextID, 
-        x1, y1, x2, y2, 
-        thickness, 
+        contextID,
+        x1, y1, x2, y2,
+        thickness,
         dash_pattern,
         dash_pattern_len,
         col);
@@ -553,6 +563,31 @@ __declspec(dllexport) float NU_Text_Width(
     const char* string)
 {
     return NU_Internal_Text_Width(contextID, string);
+}
+
+__declspec(dllexport) void NU_LText(
+    int contextID,
+    float x, float y, float wrapWidth,
+    NU_RGB col, const char* string, size_t stringLen)
+{
+    NU_Internal_LText(contextID, x, y, wrapWidth, col, string, stringLen);
+}
+
+__declspec(dllexport) float NU_LText_Height(
+    int contextID,
+    float wrapWidth,
+    const char* string,
+    size_t stringLen)
+{
+    return NU_Internal_LText_Height(contextID, wrapWidth, string, stringLen);
+}
+
+__declspec(dllexport) float NU_LText_Width(
+    int contextID,
+    const char* string,
+    size_t stringLen)
+{
+    return NU_Internal_LText_Width(contextID, string, stringLen);
 }
 
 __declspec(dllexport) float NU_Text_Line_Height(

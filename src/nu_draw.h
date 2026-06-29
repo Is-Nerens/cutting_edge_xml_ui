@@ -168,11 +168,11 @@ inline int NodeNotVisibleInWindow(NodeP* node, int winW, int winH)
 void NU_GenerateDrawlists()
 {
     // Clear drawlists
-    for (int i=0; i<GUI.winManager.windows.size; i++) 
-    {
+    for (int i=0; i<GUI.winManager.windows.size; i++) {
         NU_Window* win = Container_GetAt(&GUI.winManager.windows, i);
         Array_Clear(&win->drawlist.drawNodes);
         Array_Clear(&win->drawlist.clippedDrawNodes);
+        Array_Clear(&win->drawlist.canvasNodes);
     }
 
     // Clear hashmaps
@@ -188,16 +188,6 @@ void NU_GenerateDrawlists()
     BreadthFirstSearch_Reset(bfs, root);
     NodeP* node;
     while(BreadthFirstSearch_Next(bfs, &node)) {
-
-        // Node not visible? children must inherit this
-        if (NodeStateHidden(node)) {
-            NodeP* child = node->firstChild;
-            while(child != NULL) {
-                child->stateFlags |= STATE_FLAG_HIDDEN;
-                child = child->nextSibling;
-            }
-            continue;
-        }
 
         // Precompute node inner rect
         float nodeInnerX, nodeInnerY, nodeInnerWidth, nodeInnerHeight = 0;
@@ -222,13 +212,13 @@ void NU_GenerateDrawlists()
         int winW, winH;
         SDL_Window* window = GetSDL_Window(&GUI.winManager, node->windowID);
         SDL_GetWindowSize(window, &winW, &winH);
-
+        
         // iterate over children
         NodeP* child = node->firstChild;
         while(child != NULL) 
-        {
+        {            
             // if child is not visible (or not visible in window -> mark as hidded) -> skip
-            if (NodeStateHidden(child) | NodeNotVisibleInWindow(child, winW, winH)) {
+            if (NodeStateHidden(child) || NodeNotVisibleInWindow(child, winW, winH)) {
                 child->stateFlags |= STATE_FLAG_HIDDEN; 
                 child = child->nextSibling; continue;
             }
@@ -239,7 +229,7 @@ void NU_GenerateDrawlists()
             }
 
             // skip child if overflowed parent's bounds
-            if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL && child->type != NU_THEAD) {
+            if (child->type != NU_WINDOW && child->type != NU_THEAD && node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
                 NodeOverlap verticalOverlap = NodeVerticalOverlapState(child, nodeInnerY, nodeInnerHeight);
 
                 // child not inside parent -> hide in this draw pass
@@ -271,6 +261,7 @@ void NU_GenerateDrawlists()
 
                     // append node to correct window clipped node list
                     SetNodeDrawlist_Clipped(&GUI.winManager, child);
+                    if (child->type == NU_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
                     child = child->nextSibling; continue;
                 }
             }
@@ -279,11 +270,13 @@ void NU_GenerateDrawlists()
             if (node->clippedAncestor != NULL) {
                 child->clippedAncestor = node->clippedAncestor;
                 SetNodeDrawlist_Clipped(&GUI.winManager, child);
+                if (child->type == NU_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
                 child = child->nextSibling; continue;
             }
 
             // neither child nor parent is clipped -> append node to correct window node list
             SetNodeDrawlist_Draw(&GUI.winManager, child);
+            if (child->type == NU_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
 
             // move to the next child
             child = child->nextSibling;
@@ -374,9 +367,6 @@ void NU_Draw()
                     &renderData
                 );
             }
-
-            // Draw canvas content
-            if (node->type == NU_CANVAS) NU_DrawCanvasContent(node, winW, winH, NULL);
         }
 
         // 2. Draw all unclipped border rects (1 draw call)
@@ -434,12 +424,16 @@ void NU_Draw()
                     &renderData
                 );
             }
-
-            // Draw canvas content
-            if (node->type == NU_CANVAS) NU_DrawCanvasContent(node, winW, winH, clip);
+        }
+        
+        // 5. Draw all canvas content
+        for (u32 n=0; n<drawList->canvasNodes.size; n++) {
+            NodeP* node = *(NodeP**)Array_Get(&drawList->canvasNodes, n);
+            float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
+            NU_DrawCanvasContent(node, winW, winH, NULL);
         }
 
-        // 5. Draw all images (1 draw call per atlas / standalone image)
+        // 6. Draw all images (1 draw call per atlas / standalone image)
         for (int i=0; i<GUI.imageResourceManager.atlases.size; i++) {
             Atlas* atlas = Array_Get(&GUI.imageResourceManager.atlases, i);
             NU_Draw_Images(atlas->renderDataArray, winW, winH, atlas->glImageHandle);

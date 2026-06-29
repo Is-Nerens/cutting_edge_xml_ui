@@ -679,11 +679,11 @@ void NU_Render_Text
     float clip_right
 )
 {
-    if (font->subpixel_rendering) glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
+    if (font->subpixelRendering) glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
     else glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Render
-    if (font->subpixel_rendering)
+    if (font->subpixelRendering)
     {
         glUseProgram(Text_Subpixel_Shader_Program);
         glUniform1i(uSubpixelFontTextureLoc, 0);

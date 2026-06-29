@@ -432,6 +432,11 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             }
             break;  
 
+        case TITLE_PROPERTY:
+            if (currentNode->type != NU_WINDOW) break;
+            SDL_SetWindowTitle(GetSDL_Window(&GUI.winManager, currentNode->windowID), ptext);
+            break;
+
         default:
             break;
     }

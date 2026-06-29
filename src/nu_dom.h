@@ -6,7 +6,7 @@ void NU_DissociateNode(NodeP* node)
 
     switch(node->type) {
         case NU_WINDOW:
-            //SDL_DestroyWindow(node->node.window);
+            WindowManager_DeleteSubwindow(&GUI.winManager, node);
             break;
         case NU_CANVAS:
             NU_DeleteCanvasContext(node->typeData.canvas.ctxHandle);
