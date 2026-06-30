@@ -32,6 +32,11 @@ void CreateSubwindow(WindowManager* winManager, NodeP* node)
 void WindowManager_DeleteSubwindow(WindowManager* winManager, NodeP* node)
 {
     NU_Window* nuWin = Container_Get(&winManager->windows, node->windowID);
+
+    // Set last clicked window to NULL if it was destroyed
+    if (nuWin->window == winManager->lastClickedWindow) {
+        winManager->lastClickedWindow = NULL;
+    }
     
     // Recycle window if there are none or few (max 8) recycled windows
     if (winManager->recycledSDLWindows.size < 8) {
@@ -51,6 +56,7 @@ void WindowManager_DeleteSubwindow(WindowManager* winManager, NodeP* node)
 void WindowManager_Init(WindowManager* winManager)
 {
     // Init datastructures
+    winManager->lastClickedWindow = NULL;
     winManager->windows = Container_Create(sizeof(NU_Window));
     Array_Init(&winManager->absoluteRootNodes, sizeof(NodeP*), 8);
     Array_Init(&winManager->recycledSDLWindows, sizeof(SDL_Window*), 8);

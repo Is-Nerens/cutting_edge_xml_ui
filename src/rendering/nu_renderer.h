@@ -615,9 +615,9 @@ void Draw_Clipped_Vertex_RGB_List
 
 void NU_Draw_Images(
     Array imageRenderDatas,
+    GLuint imageHandle,
     float screenW, 
-    float screenH,
-    GLuint imageHandle
+    float screenH
 )
 {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

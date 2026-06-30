@@ -216,9 +216,9 @@ void NU_GenerateDrawlists()
         // iterate over children
         NodeP* child = node->firstChild;
         while(child != NULL) 
-        {            
-            // if child is not visible (or not visible in window -> mark as hidded) -> skip
-            if (NodeStateHidden(child) || NodeNotVisibleInWindow(child, winW, winH)) {
+        {                  
+            // if parent is not visible (ad child inherets parent's visibility) OR child is not visible OR child not visible in it's window -> mark as hidded -> skip
+            if ((NodeStateHidden(node) && child->type != NU_WINDOW) || NodeStateHidden(child) || NodeNotVisibleInWindow(child, winW, winH)) {
                 child->stateFlags |= STATE_FLAG_HIDDEN; 
                 child = child->nextSibling; continue;
             }
@@ -228,8 +228,8 @@ void NU_GenerateDrawlists()
                 Array_Push(&GUI.winManager.absoluteRootNodes, &child);
             }
 
-            // skip child if overflowed parent's bounds
-            if (child->type != NU_WINDOW && child->type != NU_THEAD && node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
+            // if overflowed parent's bounds
+            if (child->type != NU_WINDOW && child->type != NU_THEAD && (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL)) {
                 NodeOverlap verticalOverlap = NodeVerticalOverlapState(child, nodeInnerY, nodeInnerHeight);
 
                 // child not inside parent -> hide in this draw pass
@@ -241,6 +241,7 @@ void NU_GenerateDrawlists()
 
                 // child overlaps parent boundary
                 else if (verticalOverlap == NODE_OVERLAP_PARTIAL) {
+                    
                     // determine clipping
                     NU_ClipBounds clip;
                     clip.top = fmaxf(child->node.y - 1, nodeInnerY);
@@ -296,7 +297,6 @@ void NU_Draw()
         Index_List_Init(&text_index_buffers[i], 512);
     }
 
-    ImageResourceManager_ClearAllImageRenderData(&GUI.imageResourceManager);
     Array_Clear(&GUI.borderRects);
 
     // Upload / reupload font atlases as needed
@@ -311,6 +311,7 @@ void NU_Draw()
     for (u32 i=0; i<GUI.winManager.windows.size; i++)
     {   
         NU_Window* win = Container_GetAt(&GUI.winManager.windows, i);
+        ImageResourceManager_ClearAllImageRenderData(&GUI.imageResourceManager);
 
         // get the window and dimensions, clear and start new frame
         SDL_Window* window = win->window;
@@ -436,7 +437,7 @@ void NU_Draw()
         // 6. Draw all images (1 draw call per atlas / standalone image)
         for (int i=0; i<GUI.imageResourceManager.atlases.size; i++) {
             Atlas* atlas = Array_Get(&GUI.imageResourceManager.atlases, i);
-            NU_Draw_Images(atlas->renderDataArray, winW, winH, atlas->glImageHandle);
+            NU_Draw_Images(atlas->renderDataArray, atlas->glImageHandle, winW, winH);
         }
         for (int i=0; i<GUI.imageResourceManager.standaloneImageRenderDatas.size; i++) {
             StandaloneImageRenderData* sRenderData = Array_Get(&GUI.imageResourceManager.standaloneImageRenderDatas, i);

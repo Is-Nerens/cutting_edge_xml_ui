@@ -25,5 +25,6 @@ typedef struct WindowManager
     Array absoluteRootNodes;
     Hashmap clipMap;
     NodeP* hoveredWindowNode;
+    SDL_Window* lastClickedWindow;
     int rootWindowID;
 } WindowManager;

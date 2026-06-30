@@ -108,6 +108,26 @@ bool EventWatcher(void* data, SDL_Event* event)
             }
         }
 
+        // toggle window fullscreen with f11 (on windows and linux)
+        if (event->key.key == SDLK_F11 && 
+            (stringEquals(SDL_GetPlatform(), "Windows") || stringEquals(SDL_GetPlatform(), "Linux"))) 
+        {
+            bool fullscreen = (SDL_GetWindowFlags(GUI.winManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
+            SDL_SetWindowFullscreen(GUI.winManager.lastClickedWindow, !fullscreen);
+            GUI.awaiting_redraw = true;
+        }
+
+        // toggle fullscreen with control + command + f (on macOS)
+        if (event->key.key == SDLK_F &&
+            stringEquals(SDL_GetPlatform(), "macOS") &&
+            (event->key.mod & SDL_KMOD_CTRL) &&
+            (event->key.mod & SDL_KMOD_GUI))
+        {
+            bool fullscreen = (SDL_GetWindowFlags(GUI.winManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
+            SDL_SetWindowFullscreen(GUI.winManager.lastClickedWindow, !fullscreen);
+            GUI.awaiting_redraw = true;
+        }
+        
         TriggerAllOnKeyDownEvents(event->key.key, event->key.repeat);
     }
     else if (event->type == SDL_EVENT_KEY_UP) {
@@ -200,6 +220,9 @@ bool EventWatcher(void* data, SDL_Event* event)
     // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_WINDOW_FOCUS_GAINED)
     {
+        // Update last clicked window
+        GUI.winManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
+
         GUI.mouse_down_node = GUI.hovered_node;
         GUI.awaiting_redraw = true;
     }
@@ -208,9 +231,12 @@ bool EventWatcher(void* data, SDL_Event* event)
     // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
     {
+        // Update last clicked window
+        GUI.winManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
+        
         // If mouse hasn't moved yet the hovered window and node will not have been set -> set both of these
         if (!GUI.winManager.hoveredWindowNode) {
-            WindowManager_SetHoveredWindow(&GUI.winManager, SDL_GetWindowFromID(event->window.windowID));
+            WindowManager_SetHoveredWindow(&GUI.winManager, SDL_GetWindowFromID(event->button.windowID));
         }
 
         // Get mouse down coordinates
