@@ -1,4 +1,4 @@
-#include <datastructures/Linalloc.h>
+#include <datastructures/linalloc.h>
 #include <datastructures/Array.h>
 
 typedef struct ErrorSystem {
@@ -42,7 +42,7 @@ void ErrorSystem_AddError(ErrorSystem* errorSys, const char* err)
 }
 
 void ErrorSystem_Clear(ErrorSystem* errorSys)
-{   
+{
     errorSys->errorMessageCount = 0;
     errorSys->readHead = 0;
     errorSys->writeHead = 0;

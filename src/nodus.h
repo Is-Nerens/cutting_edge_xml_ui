@@ -2,10 +2,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h> 
+#include <stdint.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 #include <freetype/freetype.h>
+
+// Import macro
+#if defined(IPC_STATIC)
+    #define _IMPORT
+#elif defined(_WIN64)
+    #define _IMPORT __declspec(dllimport)
+#elif defined(__APPLE__) || defined(__linux__)
+    #define _IMPORT __attribute__((visibility("default")))
+#else
+    #define _IMPORT
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,7 +30,7 @@ typedef struct NU_Stylesheet NU_Stylesheet;
 typedef enum NodeType
 {
     NU_WINDOW, NU_BOX, NU_BUTTON,
-    NU_INPUT, NU_CANVAS, NU_IMAGE, 
+    NU_INPUT, NU_CANVAS, NU_IMAGE,
     NU_TABLE, NU_THEAD, NU_ROW, NU_NAT,
     NU_FRAME, NU_IMPORT
 } NodeType;
@@ -73,7 +84,7 @@ enum NU_Event_Type
 enum NU_Keycode
 {
     NU_KEY_UNKNOWN = 0,
-    
+
     // Printable keys (ASCII range - these are correct)
     NU_KEY_SPACE = 32,
     NU_KEY_APOSTROPHE = 39,
@@ -123,7 +134,7 @@ enum NU_Keycode
     NU_KEY_BACKSLASH = 92,
     NU_KEY_RIGHT_BRACKET = 93,
     NU_KEY_GRAVE = 96,
-    
+
     // Control keys (corrected from SDL header)
     NU_KEY_ESCAPE = 27,
     NU_KEY_ENTER = 13,
@@ -131,7 +142,7 @@ enum NU_Keycode
     NU_KEY_BACKSPACE = 8,
     NU_KEY_DELETE = 127,
     NU_KEY_CLEAR = 0x4000009cu,  // 1073741980 - from SDL header
-    
+
     // Navigation keys (CORRECTED - these were wrong!)
     NU_KEY_UP = 0x40000052u,        // 1073741906
     NU_KEY_DOWN = 0x40000051u,      // 1073741905
@@ -142,7 +153,7 @@ enum NU_Keycode
     NU_KEY_PAGE_UP = 0x4000004bu,   // 1073741899
     NU_KEY_PAGE_DOWN = 0x4000004eu, // 1073741902
     NU_KEY_INSERT = 0x40000049u,    // 1073741897
-    
+
     // Modifier keys (corrected)
     NU_KEY_LEFT_SHIFT = 0x400000e1u,   // 1073742049
     NU_KEY_LEFT_CTRL = 0x400000e0u,    // 1073742048
@@ -152,12 +163,12 @@ enum NU_Keycode
     NU_KEY_RIGHT_CTRL = 0x400000e4u,   // 1073742052
     NU_KEY_RIGHT_ALT = 0x400000e6u,    // 1073742054
     NU_KEY_RIGHT_GUI = 0x400000e7u,    // 1073742055
-    
+
     // Lock keys (corrected)
     NU_KEY_CAPS_LOCK = 0x40000039u,    // 1073741881
     NU_KEY_NUM_LOCK = 0x40000053u,     // 1073741907
     NU_KEY_SCROLL_LOCK = 0x40000047u,  // 1073741895
-    
+
     // Keypad keys (corrected)
     NU_KEY_KP_0 = 0x40000062u,         // 1073741922
     NU_KEY_KP_1 = 0x40000059u,         // 1073741913
@@ -178,7 +189,7 @@ enum NU_Keycode
     NU_KEY_KP_EQUALS = 0x40000067u,    // 1073741927
     NU_KEY_KP_COMMA = 0x40000085u,     // 1073741957
     NU_KEY_KP_SPACE = 0x400000cdu,     // 1073742029
-    
+
     // Function keys (corrected - these are scancode based)
     NU_KEY_F1 = 0x4000003au,   // 1073741882
     NU_KEY_F2 = 0x4000003bu,   // 1073741883
@@ -204,11 +215,11 @@ enum NU_Keycode
     NU_KEY_F22 = 0x40000071u,  // 1073741937
     NU_KEY_F23 = 0x40000072u,  // 1073741938
     NU_KEY_F24 = 0x40000073u,  // 1073741939
-    
+
     // Print screen and pause (corrected)
     NU_KEY_PRINT_SCREEN = 0x40000046u,  // 1073741894
     NU_KEY_PAUSE = 0x40000048u,        // 1073741896
-    
+
     // Miscellaneous (corrected)
     NU_KEY_APPLICATION = 0x40000065u,   // 1073741925
     NU_KEY_POWER = 0x40000066u,        // 1073741926
@@ -226,7 +237,7 @@ enum NU_Keycode
     NU_KEY_MUTE = 0x4000007fu,         // 1073741951
     NU_KEY_VOLUME_UP = 0x40000080u,    // 1073741952
     NU_KEY_VOLUME_DOWN = 0x40000081u,  // 1073741953
-    
+
     // Audio control (corrected)
     NU_KEY_AUDIO_NEXT = 0x4000010bu,   // 1073742091
     NU_KEY_AUDIO_PREV = 0x4000010cu,   // 1073742092
@@ -235,7 +246,7 @@ enum NU_Keycode
     NU_KEY_AUDIO_MUTE = 0x4000007fu,   // 1073741951
     NU_KEY_AUDIO_VOLUME_UP = 0x40000080u,   // 1073741952
     NU_KEY_AUDIO_VOLUME_DOWN = 0x40000081u, // 1073741953
-    
+
     // Browser keys (corrected)
     NU_KEY_AC_SEARCH = 0x40000118u,    // 1073742104
     NU_KEY_AC_HOME = 0x40000119u,      // 1073742105
@@ -291,75 +302,75 @@ struct NU_Callback_Info
 
 
 // UI functions
-__declspec(dllimport) int NU_Create_Gui(const char* xml_filepath, const char* css_filepath);
-__declspec(dllimport) void NU_Quit(void);
-__declspec(dllimport) int NU_Running(void);
+_IMPORT int NU_Create_Gui(const char* xml_filepath, const char* css_filepath);
+_IMPORT void NU_Quit(void);
+_IMPORT int NU_Running(void);
 
 // Error functions
-__declspec(dllimport) inline void NU_ClearErrors(void);
-__declspec(dllimport) const char* NU_GetNextError(void);
+_IMPORT inline void NU_ClearErrors(void);
+_IMPORT const char* NU_GetNextError(void);
 
 // Window functions
-__declspec(dllimport) void NU_Set_Window_Fullscreen(Node* node);
-__declspec(dllimport) void NU_Set_Window_Windowed(Node* node);
+_IMPORT void NU_Set_Window_Fullscreen(Node* node);
+_IMPORT void NU_Set_Window_Windowed(Node* node);
 
-// Cursor functions 
-__declspec(dllimport) void NU_Set_Cursor_Default(void);
-__declspec(dllimport) void NU_Set_Cursor_Pointer(void);
-__declspec(dllimport) void NU_Set_Cursor_Text(void);
-__declspec(dllimport) void NU_Set_Cursor_Wait(void);
-__declspec(dllimport) void NU_Set_Cursor_Crosshair(void);
-__declspec(dllimport) void NU_Set_Cursor_Move(void);
-__declspec(dllimport) void NU_Set_Cursor_NsResize(void);
-__declspec(dllimport) void NU_Set_Cursor_EwResize(void);
-__declspec(dllimport) void NU_Set_Cursor_NwseResize(void);
-__declspec(dllimport) void NU_Set_Cursor_NeswResize(void);
+// Cursor functions
+_IMPORT void NU_Set_Cursor_Default(void);
+_IMPORT void NU_Set_Cursor_Pointer(void);
+_IMPORT void NU_Set_Cursor_Text(void);
+_IMPORT void NU_Set_Cursor_Wait(void);
+_IMPORT void NU_Set_Cursor_Crosshair(void);
+_IMPORT void NU_Set_Cursor_Move(void);
+_IMPORT void NU_Set_Cursor_NsResize(void);
+_IMPORT void NU_Set_Cursor_EwResize(void);
+_IMPORT void NU_Set_Cursor_NwseResize(void);
+_IMPORT void NU_Set_Cursor_NeswResize(void);
 
 // DOM functions
-__declspec(dllimport) inline Node* NU_PARENT(Node* node);
-__declspec(dllimport) inline Node* NU_CHILD(Node* node, uint32_t childIndex);
-__declspec(dllimport) inline int NU_CHILD_COUNT(Node* node);
-__declspec(dllimport) inline Node* NU_CREATE_NODE(Node* parent, NodeType type);
-__declspec(dllimport) inline void NU_DELETE_NODE(Node* node);
-__declspec(dllimport) inline void NU_SHIFT_NODE_IN_PARENT(Node* node, int index);
-__declspec(dllimport) inline void NU_REPARENT_NODE(Node* node, Node* newParent);
-__declspec(dllimport) float NU_NODE_SCROLL(Node* node);
-__declspec(dllimport) inline const char* NU_INPUT_TEXT_CONTENT(Node* node);
-__declspec(dllimport) void NU_FOCUS_ON_INPUT(Node* node);
-__declspec(dllimport) void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text);
-__declspec(dllimport) Node* NU_HOVERED_NODE();
-__declspec(dllimport) inline void NU_SHOW(Node* node);
-__declspec(dllimport) inline void NU_HIDE(Node* node);
-__declspec(dllimport) int NU_IS_SHOWN(Node* node);
-__declspec(dllimport) void NU_SET_WINDOW_TITLE(Node* windowNode, const char* title);
-__declspec(dllimport) Node* NU_Get_Node_By_Id(const char* id);
-__declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Class(char* const class);
-__declspec(dllimport) NU_Nodelist NU_Get_Descendents_With_Class(Node* node, char* const class);
-__declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type);
-__declspec(dllimport) NU_Nodelist NU_Get_Children(Node* node);
-__declspec(dllimport) Node* NU_Get_First_Descendent_With_Class(Node* node, const char* class);
-__declspec(dllimport) int NU_Descends_From(Node* node, Node* ancestor);
-__declspec(dllimport) void NU_Nodelist_Free(NU_Nodelist* nodelist);
-__declspec(dllimport) void NU_Set_Class(Node* node, const char* class);
+_IMPORT inline Node* NU_PARENT(Node* node);
+_IMPORT inline Node* NU_CHILD(Node* node, uint32_t childIndex);
+_IMPORT inline int NU_CHILD_COUNT(Node* node);
+_IMPORT inline Node* NU_CREATE_NODE(Node* parent, NodeType type);
+_IMPORT inline void NU_DELETE_NODE(Node* node);
+_IMPORT inline void NU_SHIFT_NODE_IN_PARENT(Node* node, int index);
+_IMPORT inline void NU_REPARENT_NODE(Node* node, Node* newParent);
+_IMPORT float NU_NODE_SCROLL(Node* node);
+_IMPORT inline const char* NU_INPUT_TEXT_CONTENT(Node* node);
+_IMPORT void NU_FOCUS_ON_INPUT(Node* node);
+_IMPORT void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text);
+_IMPORT Node* NU_HOVERED_NODE();
+_IMPORT inline void NU_SHOW(Node* node);
+_IMPORT inline void NU_HIDE(Node* node);
+_IMPORT int NU_IS_SHOWN(Node* node);
+_IMPORT void NU_SET_WINDOW_TITLE(Node* windowNode, const char* title);
+_IMPORT Node* NU_Get_Node_By_Id(const char* id);
+_IMPORT NU_Nodelist NU_Get_Nodes_By_Class(char* const class);
+_IMPORT NU_Nodelist NU_Get_Descendents_With_Class(Node* node, char* const class);
+_IMPORT NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type);
+_IMPORT NU_Nodelist NU_Get_Children(Node* node);
+_IMPORT Node* NU_Get_First_Descendent_With_Class(Node* node, const char* class);
+_IMPORT int NU_Descends_From(Node* node, Node* ancestor);
+_IMPORT void NU_Nodelist_Free(NU_Nodelist* nodelist);
+_IMPORT void NU_Set_Class(Node* node, const char* class);
 
 // Event functions
-__declspec(dllimport) void NU_Register_Event(
-  Node* node, 
+_IMPORT void NU_Register_Event(
+  Node* node,
   void* args,
-  NU_Callback callback, 
+  NU_Callback callback,
   enum NU_Event_Type event
-); 
+);
 
 // Canvas functions
-__declspec(dllimport) int NU_Get_Canvas_Ctx(Node* canvasNode);
+_IMPORT int NU_Get_Canvas_Ctx(Node* canvasNode);
 
-__declspec(dllimport) void NU_Clear_Canvas(int contextID);
+_IMPORT void NU_Clear_Canvas(int contextID);
 
-__declspec(dllimport) void NU_Render();
+_IMPORT void NU_Render();
 
-__declspec(dllimport) NU_RGB NU_RGB_From_Hex(const char* hex);
+_IMPORT NU_RGB NU_RGB_From_Hex(const char* hex);
 
-__declspec(dllimport) void NU_Border_Rect(
+_IMPORT void NU_Border_Rect(
     int contextID,
     float x, float y, float w, float h,
     float thickness,
@@ -367,38 +378,38 @@ __declspec(dllimport) void NU_Border_Rect(
     NU_RGB fill_col
 );
 
-__declspec(dllimport) void NU_Triangle(
+_IMPORT void NU_Triangle(
     int contextID,
-    float x1, float y1, 
-    float x2, float y2, 
+    float x1, float y1,
+    float x2, float y2,
     float x3, float y3,
     float thickness,
     NU_RGB border_col,
     NU_RGB fill_col
 );
 
-__declspec(dllimport) void NU_Vline(
+_IMPORT void NU_Vline(
     int contextID,
     float x, float y, float height,
     float thickness,
     NU_RGB col
 );
 
-__declspec(dllimport) void NU_Hline(
+_IMPORT void NU_Hline(
     int contextID,
     float x, float y, float width,
     float thickness,
     NU_RGB col
 );
 
-__declspec(dllimport) void NU_Line(
+_IMPORT void NU_Line(
     int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
     NU_RGB col
 );
 
-__declspec(dllimport) void NU_Dashed_Line(
+_IMPORT void NU_Dashed_Line(
     int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
@@ -407,46 +418,46 @@ __declspec(dllimport) void NU_Dashed_Line(
     NU_RGB col
 );
 
-__declspec(dllimport) void NU_Set_Canvas_Font(int contextID, const char* font_name);
+_IMPORT void NU_Set_Canvas_Font(int contextID, const char* font_name);
 
-__declspec(dllimport) void NU_Text(
+_IMPORT void NU_Text(
     int contextID,
     float x, float y, float wrapWidth,
     NU_RGB col, const char* string
 );
 
-__declspec(dllimport) float NU_Text_Height(
+_IMPORT float NU_Text_Height(
     int contextID,
     float wrapWidth,
     const char* string
 );
 
-__declspec(dllimport) float NU_Text_Width(
+_IMPORT float NU_Text_Width(
     int contextID,
     const char* string
 );
 
-__declspec(dllimport) void NU_LText(
+_IMPORT void NU_LText(
     int contextID,
     float x, float y, float wrapWidth,
     NU_RGB col, const char* string,
     size_t stringLen
 );
 
-__declspec(dllimport) float NU_LText_Height(
+_IMPORT float NU_LText_Height(
     int contextID,
     float wrapWidth,
     const char* string,
     size_t stringLen
 );
 
-__declspec(dllimport) float NU_LText_Width(
+_IMPORT float NU_LText_Width(
     int contextID,
     const char* string,
     size_t stringLen
 );
 
-__declspec(dllimport) float NU_Text_Line_Height(int contextID);
+_IMPORT float NU_Text_Line_Height(int contextID);
 
 #ifdef __cplusplus
 }

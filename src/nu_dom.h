@@ -11,11 +11,12 @@ void NU_DissociateNode(NodeP* node)
         case NU_CANVAS:
             NU_DeleteCanvasContext(node->typeData.canvas.ctxHandle);
             break;
-        case NU_INPUT:
+        case NU_INPUT: {
             InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
             InputText_Free(inputText);
             Container_Remove(&GUI.textInputs,node->typeData.input.textInputHandle);
             break;
+        }
         default:
             break;
     }
@@ -24,7 +25,7 @@ void NU_DissociateNode(NodeP* node)
     }
     if (node == GUI.hovered_node) {
         GUI.hovered_node = NULL;
-    } 
+    }
     if (node == GUI.mouse_down_node) {
         GUI.mouse_down_node = NULL;
     }

@@ -127,7 +127,7 @@ int NU_Internal_Apply_Stylesheet(Stylesheet* stylesheet)
     return 1; // success
 }
 
-inline NU_Font* Stylesheet_Get_Font(Stylesheet* ss, u8 fontID) {
+static inline NU_Font* Stylesheet_Get_Font(Stylesheet* ss, u8 fontID) {
 
     return Container_Get(&ss->fonts, fontID);
 }

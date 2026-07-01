@@ -37,7 +37,7 @@ void Stylesheet_Overwrite_Style_Item(Stylesheet_Item* item, Stylesheet_Item* ove
     item->right  = item->right  * !(overwriter->propertyFlags & PROPERTY_FLAG_RIGHT)  + overwriter->right  * !!(overwriter->propertyFlags & PROPERTY_FLAG_RIGHT);
     item->top    = item->top    * !(overwriter->propertyFlags & PROPERTY_FLAG_TOP)    + overwriter->top    * !!(overwriter->propertyFlags & PROPERTY_FLAG_TOP);
     item->bottom = item->bottom * !(overwriter->propertyFlags & PROPERTY_FLAG_BOTTOM) + overwriter->bottom * !!(overwriter->propertyFlags & PROPERTY_FLAG_BOTTOM);
-    
+
     // Branchless RGB overwrite
     item->backgroundR = item->backgroundR * !(overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND)    + overwriter->backgroundR * !!(overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND);
     item->backgroundG = item->backgroundG * !(overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND)    + overwriter->backgroundG * !!(overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND);
@@ -70,7 +70,7 @@ void Stylesheet_Overwrite_Style_Item(Stylesheet_Item* item, Stylesheet_Item* ove
     // Overwrite image and input type (branchless)
     item->imageHandle = item->imageHandle * !(overwriter->propertyFlags & PROPERTY_FLAG_IMAGE)      + overwriter->imageHandle * !!(overwriter->propertyFlags & PROPERTY_FLAG_IMAGE);
     item->inputType     = item->inputType * !(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE) + overwriter->inputType   * !!(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE);
-    
+
     // Overwrite font Id
     item->fontId = overwriter->fontId;
 }
@@ -94,7 +94,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
             }
             break;
 
-        // Set growth 
+        // Set growth
         case STYLE_GROW_PROPERTY:
             switch(text[0])
             {
@@ -104,7 +104,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
             }
             item->propertyFlags |= PROPERTY_FLAG_GROW;
             break;
-        
+
         // Set overflow behaviour
         case STYLE_OVERFLOW_V_PROPERTY:
             switch(text[0])
@@ -116,7 +116,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
                     item->propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL; break;
             }
             break;
-        
+
         case STYLE_OVERFLOW_H_PROPERTY:
             switch(text[0])
             {
@@ -159,7 +159,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
                 item->propertyFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
             }
             break;
-        
+
         // Set gap
         case STYLE_GAP_PROPERTY:
             item->propertyFlags |= (PROPERTY_FLAG_GAP * String_To_u8(&item->gap, text));
@@ -174,7 +174,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
         case STYLE_MIN_WIDTH_PROPERTY:
             item->propertyFlags |= (PROPERTY_FLAG_MIN_WIDTH * String_To_Uint16(&item->minWidth, text));
             break;
-        
+
         // Set max width
         case STYLE_MAX_WIDTH_PROPERTY:
             item->propertyFlags |= (PROPERTY_FLAG_MAX_WIDTH * String_To_Uint16(&item->maxWidth, text));
@@ -277,7 +277,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
             break;
 
         // Set background colour
-        case STYLE_BACKGROUND_COLOUR_PROPERTY:
+        case STYLE_BACKGROUND_COLOUR_PROPERTY: {
             struct RGB rgb;
             if (Parse_Hexcode(text, textLen, &rgb)) {
                 item->backgroundR = rgb.r;
@@ -289,9 +289,11 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
                 item->layoutFlags |= HIDE_BACKGROUND;
             }
             break;
+        }
 
         // Set border colour
-        case STYLE_BORDER_COLOUR_PROPERTY:
+        case STYLE_BORDER_COLOUR_PROPERTY: {
+            struct RGB rgb;
             if (Parse_Hexcode(text, textLen, &rgb)) {
                 item->borderR = rgb.r;
                 item->borderG = rgb.g;
@@ -299,9 +301,11 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
                 item->propertyFlags |= PROPERTY_FLAG_BORDER_COLOUR;
             }
             break;
+        }
 
         // Set text colour
-        case STYLE_TEXT_COLOUR_PROPERTY:
+        case STYLE_TEXT_COLOUR_PROPERTY: {
+            struct RGB rgb;
             if (Parse_Hexcode(text, textLen, &rgb)) {
                 item->textR = rgb.r;
                 item->textG = rgb.g;
@@ -309,9 +313,10 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
                 item->propertyFlags |= PROPERTY_FLAG_TEXT_COLOUR;
             }
             break;
-        
+        }
+
         // Set border width
-        case STYLE_BORDER_WIDTH_PROPERTY:
+        case STYLE_BORDER_WIDTH_PROPERTY: {
             u8 border_width;
             if (String_To_u8(&border_width, text)) {
                 item->borderTop = border_width;
@@ -324,6 +329,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
                 item->propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT;
             }
             break;
+        }
 
         case STYLE_BORDER_TOP_WIDTH_PROPERTY:
             item->propertyFlags |= PROPERTY_FLAG_BORDER_TOP * String_To_u8(&item->borderTop, text);
@@ -342,7 +348,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
             break;
 
         // Set border radii
-        case STYLE_BORDER_RADIUS_PROPERTY:
+        case STYLE_BORDER_RADIUS_PROPERTY: {
             u8 border_radius;
             if (String_To_u8(&border_radius, text)) {
                 item->borderRadiusTl = border_radius;
@@ -355,6 +361,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
                 item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
             }
             break;
+        }
 
         case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
             item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL *
@@ -377,7 +384,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
             break;
 
         // Set padding
-        case STYLE_PADDING_PROPERTY:
+        case STYLE_PADDING_PROPERTY: {
             u8 pad;
             if (String_To_u8(&pad, text)) {
                 item->padTop = pad;
@@ -390,6 +397,7 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
                 item->propertyFlags |= PROPERTY_FLAG_PAD_RIGHT;
             }
             break;
+        }
 
         case STYLE_PADDING_TOP_PROPERTY:
             item->propertyFlags |= PROPERTY_FLAG_PAD_TOP *
@@ -410,8 +418,8 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
             item->propertyFlags |= PROPERTY_FLAG_PAD_RIGHT *
                 String_To_u8(&item->padRight, text);
             break;
-        
-        case STYLE_IMAGE_SOURCE_PROPERTY:
+
+        case STYLE_IMAGE_SOURCE_PROPERTY: {
             int imageHandle = ImageResourceLoader_GetLoadedImageHandle(imageResourceLoader, text);
 
             // Image not loaded yet
@@ -425,13 +433,15 @@ static void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token 
                 item->propertyFlags |= PROPERTY_FLAG_IMAGE;
             }
             break;
+        }
 
-        case STYLE_FONT_PROPERTY:
+        case STYLE_FONT_PROPERTY: {
             void* found_font = LinearStringmap_Get(&ss->fontNameIndexMap, text);
             if (found_font != NULL) {
                 item->fontId = *(u8*)found_font;
             }
             break;
+        }
 
         case STYLE_INPUT_TYPE_PROPERTY:
             item->propertyFlags |= PROPERTY_FLAG_INPUT_TYPE;
@@ -502,7 +512,7 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
     char* fontSrc = NULL;
     FontLoadJob fontJobs[32]; int fontJobCount = 0;
     int i = 0;
-    
+
     while(i < tokens->size)
     {
         const enum NU_Style_Token token = TokenArray_Get(tokens, i);
@@ -535,20 +545,22 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
                         fontSrc = text;
                         break;
 
-                    case STYLE_FONT_SIZE:
+                    case STYLE_FONT_SIZE: {
                         int size = 0;
                         if (String_To_Int(&size, text)) fontSize = size;
                         break;
+                    }
 
-                    case STYLE_FONT_WEIGHT:
+                    case STYLE_FONT_WEIGHT: {
                         int weight = 0;
                         if (String_To_Int(&weight, text)) fontWeight = weight;
                         break;
+                    }
 
                     default:
                         break;
                 }
-            } 
+            }
 
             i += 3; continue;
         }
@@ -561,10 +573,10 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
 
             if (inFontSelector) {
                 if (fontSrc != NULL) {
-                    
+
                     // Create a new font
                     void* found_font = LinearStringmap_Get(&ss->fontNameIndexMap, fontName);
-                    if (found_font == NULL && fontJobCount < 64) 
+                    if (found_font == NULL && fontJobCount < 64)
                     {
                         // Create uninitialised font
                         NU_Font font;
@@ -578,7 +590,7 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
                         fontJobs[fontJobCount].fontWeight = fontWeight;
                         fontJobs[fontJobCount].font = createFont;
                         fontJobCount++;
-                    } 
+                    }
                 }
                 else {
                     // Free filepath strings
@@ -656,7 +668,7 @@ static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Stylesheet* s
                 if (textRef) {
                     char* text = &src[textRef->src_index]; src[textRef->src_index + textRef->char_count] = '\0';
                     Stylesheet_Parse_Property(ss, token, &ss->defaultStyleItem, text, textRef->char_count, imageResourceLoader);
-                }   
+                }
             }
             i += 3; continue;
         }
@@ -673,10 +685,10 @@ static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Stylesheet* s
 }
 
 void Stylesheet_Parse_Scrollbar_Property(Stylesheet* ss, const enum NU_Style_Token token, const char* text, int textLen)
-{   
+{
     u8 property;
     switch (token)
-    {   
+    {
         case STYLE_WIDTH_PROPERTY:
             if (String_To_u8(&property, text)) {
                 ss->scrollbarStyle.width = property;
@@ -771,9 +783,9 @@ void Stylesheet_Parse_Scroll_Track_Property(Stylesheet* ss, const enum NU_Style_
 {
     u8 property;
     struct RGB rgb;
-    switch (token) 
+    switch (token)
     {
-        case STYLE_BACKGROUND_COLOUR_PROPERTY:  
+        case STYLE_BACKGROUND_COLOUR_PROPERTY:
             if (Parse_Hexcode(text, textLen, &rgb)) {
                 ss->scrollbarStyle.trackBackgroundR = rgb.r;
                 ss->scrollbarStyle.trackBackgroundG = rgb.g;
@@ -873,7 +885,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
     // ----------------------
     // --- Parser Context ---
     // ----------------------
-    /* 0 == standard selector; 1 == font creation selector; 2 == default selector; 
+    /* 0 == standard selector; 1 == font creation selector; 2 == default selector;
        3 == scrollbar selector; 4 == scroll thumb selector; 5 == scroll track selector;
     */
     int ctx = 0;
@@ -934,15 +946,15 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
                 item.fontId = ss->defaultStyleItem.fontId;
                 i += 1;
                 continue;
-            } 
+            }
             else {
                 succeeded = 0; break;
             }
         }
         else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
             if (!AssertSelectionClosingBraceGrammar(tokens, i)) { succeeded = 0; break; }
-                
-            if (ctx == 0) {   
+
+            if (ctx == 0) {
                 for (int j=0; j<selectorCount; j++) {
                     u32 item_index = selectorIndexes[j];
                     Stylesheet_Item* curr_item = Array_Get(&ss->items, item_index);
@@ -952,7 +964,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
                 }
                 selectorCount = 0;
             }
-            
+
             ctx = 0;
             i += 1;
             continue;
@@ -960,18 +972,18 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
         else if (NU_Is_Tag_Selector_Token(token)) {
             if (i < tokens->size - 1) {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
-                if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)    
+                if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)
                 {
                     int tag = NU_Token_To_Tag(token);
                     void* found = Hashmap_Get(&ss->tag_item_hashmap, &tag);
-                    
+
                     // Style item exists
                     if (found != NULL) {
                         Stylesheet_Item* found_item = Array_Get(&ss->items, *(u32*)found);
                         selectorIndexes[selectorCount] = *(u32*)found;
-                    } 
+                    }
                     // Style item does not exist -> add one
-                    else { 
+                    else {
                         Stylesheet_Item new_item;
                         new_item.class = NULL;
                         new_item.id = NULL;
@@ -986,11 +998,11 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
                     selectorCount++;
                     continue;
                 }
-                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size - 3) 
+                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size - 3)
                 {
                     enum NU_Style_Token following_token = TokenArray_Get(tokens, i+2);
                     enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
-                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) 
+                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE))
                     {
                         int tag = NU_Token_To_Tag(token);
                         enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
@@ -1042,7 +1054,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
             if (i < tokens->size - 1)
             {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
-                if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)  
+                if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)
                 {
                     // Get class string
                     textRef = (struct Style_Text_Ref*)Array_Get(textRefs, textRefIndex++);
@@ -1054,13 +1066,13 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
 
                     // If style item exists
                     void* found = Hashmap_Get(&ss->class_item_hashmap, &stored_class);
-                    if (found != NULL) 
+                    if (found != NULL)
                     {
                         Stylesheet_Item* found_item = Array_Get(&ss->items, *(u32*)found);
                         selectorIndexes[selectorCount] = *(u32*)found;
-                    } 
+                    }
                     else // does not exist -> add item
-                    { 
+                    {
                         // Add class to string set
                         LinearStringset_Add(&ss->class_string_set, src_class);
                         stored_class = LinearStringset_Get(&ss->class_string_set, src_class);
@@ -1080,11 +1092,11 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
                     selectorCount++;
                     continue;
                 }
-                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3) 
+                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3)
                 {
                     enum NU_Style_Token following_token = TokenArray_Get(tokens, i+2);
                     enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
-                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) 
+                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE))
                     {
                         enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
 
@@ -1103,7 +1115,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
                             void* found = Hashmap_Get(&ss->class_pseudo_item_hashmap, &key);
 
                             // No pseudo item exists for this class
-                            if (found == NULL) 
+                            if (found == NULL)
                             {
                                 // Add pseudo style item
                                 Stylesheet_Item new_item;
@@ -1145,7 +1157,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
             if (i < tokens->size - 1)
             {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
-                if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)  
+                if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)
                 {
                     // Get id string
                     textRef = (struct Style_Text_Ref*)Array_Get(textRefs, textRefIndex++);
@@ -1184,11 +1196,11 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
                     selectorCount++;
                     continue;
                 }
-                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3) 
+                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3)
                 {
                     enum NU_Style_Token following_token = TokenArray_Get(tokens, i+2);
                     enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
-                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) 
+                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE))
                     {
                         enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
 
@@ -1207,7 +1219,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
                             void* found = Hashmap_Get(&ss->id_pseudo_item_hashmap, &key);
 
                             // No pseudo item exists for this id
-                            if (found == NULL) 
+                            if (found == NULL)
                             {
                                 // Add pseudo style item
                                 Stylesheet_Item new_item;
@@ -1260,7 +1272,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
         }
 
         else if (NU_Is_Property_Identifier_Token(token))
-        {    
+        {
             // Property Assertion
             if (!AssertPropertyIdentifierGrammar(tokens, i)) { succeeded = 0; break; }
 
@@ -1298,7 +1310,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
 
     // No fonts loaded -> default load embedded font
     if (ss->fonts.size == 0) {
-        NU_Font font; 
+        NU_Font font;
         if (NU_Font_Create_Default(&font, 14, 400, true)) Container_Add(&ss->fonts, &font); // FontID will be 0
         else succeeded = 0;
     }

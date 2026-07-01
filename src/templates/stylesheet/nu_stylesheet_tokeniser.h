@@ -1,5 +1,5 @@
 #pragma once
-#include <datastructures/UTF8_Parser_Word.h>
+#include <datastructures/utf8_parser_word.h>
 #include "../nu_token_array.h"
 
 
@@ -9,11 +9,11 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
     ParserWord_Init(&word);
 
     // Context
-    u8 ctx = 0; 
+    u8 ctx = 0;
     // 0 == globalspace, 1 == global commentspace, 2 == selectorspace, 10 == selector commentspace
     // 3 == property value space, 8 == property value string space 9 == property value string space escape char (\)
-    // 4 == class selector namespace, 5 == id selector name space 
-    // 6 == pseudo namespace, 
+    // 4 == class selector namespace, 5 == id selector name space
+    // 6 == pseudo namespace,
     // 7 == font creation namespace
 
     // Iterate over src file
@@ -22,14 +22,14 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
     while (i < srcLen)
     {
         u32 c = NextUTF8Codepoint(src, &i);
-        
+
         // Globalspace comment begins
         int peekI = i;
         if (ctx == 0 && i < srcLen - 1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '*') {
             i=peekI; ctx=1; continue; // ^
         }
 
-        // Globalspace comment ends 
+        // Globalspace comment ends
         peekI = i;
         if (ctx == 1 && i < srcLen - 1 && c == '*' && NextUTF8Codepoint(src, &peekI) == '/') {
             i=peekI; ctx=0; continue; // ^
@@ -41,7 +41,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
             i=peekI; ctx=10; continue; // ^
         }
 
-        // Selectorspace comment ends 
+        // Selectorspace comment ends
         peekI = i;
         if (ctx == 10 && i < srcLen - 1 && c == '*' && NextUTF8Codepoint(src, &peekI) == '/') {
             i=peekI; ctx=2; continue; // ^
@@ -63,7 +63,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
         }
 
         // Property value word completed
-        if (ctx == 3 && c == ';') {   
+        if (ctx == 3 && c == ';') {
 
             // Add property text reference
             if (word.length > 0) {
@@ -140,7 +140,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
 
         // Exiting selectorspace
         if (c == '}')
-        {   
+        {
             // If word is present -> word completed (also an error)
             if (word.length > 0) {
                 TokenArray_Add(tokens, NU_Word_To_Style_Token(word.buffer, word.length));

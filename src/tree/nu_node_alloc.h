@@ -7,11 +7,10 @@ union NallocChunk {
     char buffer[184];
 };
 
-typedef struct ArrayStart ArrayStart;
 typedef struct ArrayStart
-{ 
+{
     NallocChunk* array;
-    ArrayStart* next;
+    struct ArrayStart* next;
 } ArrayStart;
 
 typedef struct Nalloc
@@ -24,7 +23,7 @@ typedef struct Nalloc
 int Nalloc_Init(Nalloc* pool, u32 itemsPerBlock)
 {
     if (!pool) return 0;
-    
+
     NallocChunk* array = (NallocChunk*)malloc(itemsPerBlock * sizeof(NallocChunk));
     if (!array) return 0;
 
@@ -101,7 +100,7 @@ void Nalloc_Destroy(Nalloc* pool) {
         free(arrayStart);
         arrayStart = next;
     }
-    
+
     pool->arrayStart = NULL;
     pool->freeChunk = NULL;
 }

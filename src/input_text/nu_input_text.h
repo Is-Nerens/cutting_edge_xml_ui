@@ -2,7 +2,7 @@
 #include <input_text/nu_input_text_struct.h>
 
 // Updates the cursorOffset and textOffset
-void InputText_UpdateCusorTextOffsets(InputText* text, NodeP* node, NU_Font* font, i8 moveDelta) 
+void InputText_UpdateCusorTextOffsets(InputText* text, NodeP* node, NU_Font* font, i8 moveDelta)
 {
     // calculate text width from start to cursor
     char temp = text->buffer[text->cursorBytes];
@@ -52,7 +52,7 @@ void InputText_ComputeCursorTextOffset_PlaceEnd(InputText* text, NodeP* node, NU
 }
 
 // Updates the highlightOffset and textOffset
-void InputText_UpdateHighlightTextOffsets(InputText* text, NodeP* node, NU_Font* font, i8 moveDelta) 
+void InputText_UpdateHighlightTextOffsets(InputText* text, NodeP* node, NU_Font* font, i8 moveDelta)
 {
     // calculate text width from start to cursor
     char temp = text->buffer[text->highlightBytes];
@@ -334,7 +334,7 @@ int InputText_MoveCursorLeftSpan(InputText* text, NodeP* node, NU_Font* font)
 {
     // can't move any further left
     if (text->cursorBytes == 0) return 0;
-    
+
     // stores numeric value
     if (text->type == 1)
     {
@@ -389,7 +389,7 @@ int InputText_MoveCursorRightSpan(InputText* text, NodeP* node, NU_Font* font)
         else {
             text->cursorBytes = text->numBytes;
         }
-    }   
+    }
     // stores text value
     else
     {
@@ -414,7 +414,7 @@ void InputText_MousePlaceCursor(InputText* text, NodeP* node, NU_Font* font, flo
     if (cursorBytes < text->cursorBytes) {
         text->cursorBytes = (u16)cursorBytes;
         InputText_UpdateCusorTextOffsets(text, node, font, -1);
-    } 
+    }
     else {
         text->cursorBytes = (u16)cursorBytes;
         InputText_UpdateCusorTextOffsets(text, node, font, 1);
@@ -438,7 +438,7 @@ int InputText_MouseDrag(InputText* text, NodeP* node, NU_Font* font, float mouse
     if (highlightBytes < text->highlightBytes) {
         text->highlightBytes = (u16)highlightBytes;
         InputText_UpdateHighlightTextOffsets(text, node, font, -1);
-    } 
+    }
     else {
         text->highlightBytes = (u16)highlightBytes;
         InputText_UpdateHighlightTextOffsets(text, node, font, 1);
@@ -568,7 +568,7 @@ void InputText_SetText(InputText* text, NodeP* node, NU_Font* font, const char* 
     text->updateOffsetsPostLayout = true;
 }
 
-inline void InputText_PasteFromClipboard(InputText* text, NodeP* node, NU_Font* font)
+static inline void InputText_PasteFromClipboard(InputText* text, NodeP* node, NU_Font* font)
 {
     // Get clipboard text
     char* clip = SDL_GetClipboardText();

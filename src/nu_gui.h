@@ -7,6 +7,13 @@
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 
+#ifndef min
+    #define min(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+#ifndef max
+    #define max(a, b) (((a) > (b)) ? (a) : (b))
+#endif
+
 static inline float fmax_fast(float a, float b) {
     return a * (a > b) + b * (1 - (a > b));
 }
@@ -21,17 +28,17 @@ static inline float fmin_fast(float a, float b) {
 #include <utils/nu_int.h>
 #include <utils/performance.h>
 #include <datastructures/Array.h>
-#include <datastructures/String.h>
-#include <datastructures/Container.h>
-#include <datastructures/Stringset.h>
-#include <datastructures/Hashmap.h>
-#include <datastructures/Set.h>
-#include <datastructures/Stringmap.h>
-#include <datastructures/Linear_Stringmap.h>
-#include <datastructures/Linear_Stringset.h>
-#include <datastructures/String_Arena.h>
-#include <datastructures/Hashmap.h>
-#include <datastructures/Linalloc.h>
+#include <datastructures/string.h>
+#include <datastructures/container.h>
+#include <datastructures/stringset.h>
+#include <datastructures/hashmap.h>
+#include <datastructures/set.h>
+#include <datastructures/stringmap.h>
+#include <datastructures/linear_stringmap.h>
+#include <datastructures/linear_stringset.h>
+#include <datastructures/string_arena.h>
+#include <datastructures/hashmap.h>
+#include <datastructures/linalloc.h>
 #include <errors/nu_error.h>
 #include <text/nu_font.h>
 #include <tree/nu_node.h>
@@ -171,7 +178,7 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     Stringset_Init(&GUI.class_string_set, 1024, 100);
     Stringset_Init(&GUI.id_string_set, 1024, 100);
     Stringmap_Init(&GUI.id_node_map, sizeof(NodeP*), 100, 1024);
-    
+
     // Init canvas context and text input containers
     GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
     GUI.textInputs = Container_Create(sizeof(InputText));
@@ -255,5 +262,5 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     SDL_AddEventWatch(EventWatcher, NULL);
 
     // Success
-    return 1; 
+    return 1;
 }

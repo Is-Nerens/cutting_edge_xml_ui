@@ -1,8 +1,8 @@
 #pragma once
 
-#include <datastructures/Linear_Stringmap.h>
+#include <datastructures/linear_stringmap.h>
 #include <utils/nu_int.h>
-#define STB_IMAGE_IMPLEMENTATION 
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 typedef struct AtlasImage {
@@ -127,7 +127,7 @@ void ImageResourceManager_AddImageRenderData(ImageResourceManager* resourceManag
     if ((imageHandle & 0xFFFFu) == 0xFFFFu) {
         int imageIndex = (imageHandle >> 16) & 0xFFFFu;
         GLuint glHandle = *(GLuint*)Array_Get(&resourceManager->largeImageGlHandles, imageIndex);
-        StandaloneImageRenderData* sRenderData = Array_PushEmpty(&resourceManager->standaloneImageRenderDatas);  
+        StandaloneImageRenderData* sRenderData = Array_PushEmpty(&resourceManager->standaloneImageRenderDatas);
         sRenderData->glImageHandle = glHandle;
         sRenderData->renderData = *renderData;
     }
@@ -181,7 +181,7 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
     int imageHandle;
 
     // Too large to be added to an atlas -> keep as individual image
-    if (w > 128 || h > 128) 
+    if (w > 128 || h > 128)
     {
         // Upload to GPU
         GLuint handle;
@@ -247,7 +247,7 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
 
         // Create handle
         imageHandle = (((atlasIndex + 1) & 0xFFFFu) << 16) | ((imageIndex + 1) & 0xFFFFu);
-    }   
+    }
 
     LinearStringmap_Set(&loader->imageFilepathToHandleMap, filepath, &imageHandle);
     return imageHandle;
@@ -255,7 +255,7 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
 
 void ImageResourceLoader_UploadImagesAndFree(ImageResourceLoader* loader)
 {
-    for (int i=0; i<loader->atlasBuilds.size; i++) 
+    for (int i=0; i<loader->atlasBuilds.size; i++)
     {
         AtlasBuild* build = Array_Get(&loader->atlasBuilds, i);
 

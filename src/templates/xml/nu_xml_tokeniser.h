@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include <datastructures/UTF8_Parser_Word.h>
+#include <datastructures/utf8_parser_word.h>
 #include "nu_xml_tokens.h"
 #include "nu_xml_grammar_assertions.h"
 
@@ -12,29 +12,29 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
     u32 trailingWS  = 0;
     u8  ctx         = 0; // 0: globalspace, 1: commentspace, 2: tagspace, 3: property valuespace
     u8  seenTagName = 0;
-    
+
     // iterate over src file
     u32 srcLen = StringLen(src);
     int i = 0;
     while (i < srcLen)
-    {   
+    {
         u32 c = NextUTF8Codepoint(src, &i);
 
         // comment begins
         int peekI = i;
-        if (ctx == 0 && i < srcLen-3 
-            && c == '<' 
-            && NextUTF8Codepoint(src, &peekI) == '!' 
-            && NextUTF8Codepoint(src, &peekI) == '-' 
+        if (ctx == 0 && i < srcLen-3
+            && c == '<'
+            && NextUTF8Codepoint(src, &peekI) == '!'
+            && NextUTF8Codepoint(src, &peekI) == '-'
             && NextUTF8Codepoint(src, &peekI) == '-') {
             i=peekI; ctx=1; continue; // ^
         }
 
         // comment ends
         peekI = i;
-        if (ctx == 1 && i < srcLen-2 
-            && c == '-' 
-            && NextUTF8Codepoint(src, &peekI) == '-' 
+        if (ctx == 1 && i < srcLen-2
+            && c == '-'
+            && NextUTF8Codepoint(src, &peekI) == '-'
             && NextUTF8Codepoint(src, &peekI) == '>') {
             i=peekI; ctx=0; continue; // ^
         }
@@ -45,12 +45,12 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
         }
 
         // in globalspace
-        if (ctx == 0) 
+        if (ctx == 0)
         {
             // open end tag </
             peekI = i;
             if (i < srcLen-1 && c == '<' && NextUTF8Codepoint(src, &peekI) == '/') {
-    
+
                 // add text content token and text reference
                 if (textLen > 0) {
                     TokenArray_Add(tokenVectorOut, TEXT_CONTENT);
@@ -102,7 +102,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
         {
             // self closing tag end
             peekI = i;
-            if (i < srcLen-1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '>') 
+            if (i < srcLen-1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '>')
             {
                 // word ends -> convert to token
                 if (word.length > 0) {
@@ -115,7 +115,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
             }
 
             // tag ends
-            if (c == '>') 
+            if (c == '>')
             {
                 // word ends -> convert to token
                 if (word.length > 0) {
@@ -126,7 +126,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
                 TokenArray_Add(tokenVectorOut, CLOSE_TAG);
                 ctx=0; continue; // ^
             }
-            
+
             // property assignment
             if (c == '=') {
                 // word ends -> convert to token
@@ -155,7 +155,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
                     if (seenTagName == 0) {
                         seenTagName=1;
                         t = NU_Word_To_Tag_Token(word.buffer, word.length);
-                    } 
+                    }
                     else {
                         t = NU_Word_To_Property_Token(word.buffer, word.length);
                     }

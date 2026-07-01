@@ -1,6 +1,7 @@
 #pragma once
-#include <freetype/freetype.h>
-#include <freetype/ftmm.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_MULTIPLE_MASTERS_H
 #include "nu_default_font.h"
 
 FT_Library nu_global_freetype;
@@ -8,10 +9,10 @@ FT_Library nu_global_freetype;
 typedef struct NU_Glyph {
     FT_UInt index;
     u16 width;
-    u16 height; 
-    float bearingX;   
-    float bearingY;   
-    float advance;     
+    u16 height;
+    float bearingX;
+    float bearingY;
+    float advance;
     float u, v;    // top-left UV (not normalised)
 } NU_Glyph;
 
@@ -208,7 +209,7 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int heightPixels, int 
         if (FT_Load_Glyph(face, glyph_index, font->loadFlags)) continue;
         if (FT_Render_Glyph(face->glyph, font->renderFlags)) continue;
         FT_Bitmap* bmp = &face->glyph->bitmap;
-        
+
         // Store glyph metrics
         NU_Glyph glyph;
         glyph.index    = glyph_index;
@@ -275,7 +276,7 @@ int NU_Font_Create_Default(NU_Font* font, int heightPixels, int fontWeight, bool
     if (error) {
         return 0;
     }
-    
+
     return NU_Create_Font_From_Face(font, face, heightPixels, fontWeight, subpixelRendering);
 }
 

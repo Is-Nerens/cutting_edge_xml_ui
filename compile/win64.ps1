@@ -1,11 +1,11 @@
 $srcInclude = "src"
-$sdlLib = "src\libraries\SDL3\lib" 
+$sdlLib = "src\libraries\SDL3\lib"
 $sdlInclude = "src\libraries\SDL3\include"
 $glewInclude = "src\libraries\glew\include"
 $glewLib = "src\libraries\glew\lib"
 $freetypeInclude = "src\libraries\freetype\include"
 $freetypeLib = "src\libraries\freetype\lib"
-clang -std=c99 -O3 -fopenmp "src\z_nodus.c" `
+clang -std=c99 -O3 -fopenmp "src\nodus.c" `
 -I"$srcInclude" `
 -I"$glewInclude" `
 -I"$sdlInclude" `
@@ -16,5 +16,9 @@ clang -std=c99 -O3 -fopenmp "src\z_nodus.c" `
 -lglew32 -lSDL3 -lopengl32 -lgdi32 -lfreetype -ladvapi32 `
 "-Wl,/SUBSYSTEM:WINDOWS" `
 -shared `
--o "nodus\lib\nodus.dll" -Wno-deprecated-declarations
-Remove-Item nodus\lib\nodus.exp -Force
+-o "nodus\win64\lib\nodus.dll" -Wno-deprecated-declarations
+Remove-Item nodus\win64\lib\nodus.exp -Force
+
+# Copy nodus.h into nodus/win64/include
+New-Item -ItemType Directory -Force -Path "nodus/win64/include" | Out-Null
+Copy-Item -Force "src/nodus.h" "nodus/win64/include/

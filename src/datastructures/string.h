@@ -28,11 +28,11 @@ typedef struct Salloc {
     int init;
 } Salloc;
 
-__declspec(thread) Salloc salloc = {0};
+Salloc salloc = {0};
 
 static void SallocEnsureInit()
 {
-    if (!salloc.init) 
+    if (!salloc.init)
     {
         size_t itemSize = 32;
         size_t itemsPerBlock = 256;
@@ -128,9 +128,9 @@ void SallocFree(void* ptr, size_t size)
 
 
 // -----------------------------------------------------------------------------------
-// --- These functions serve as alternatives to <string.h> standard implementations 
-// --- The purpose is to avoid using unsafe deprecated string functions that trigger 
-// --- compiler warnings. And give these functions proper names because eish!            
+// --- These functions serve as alternatives to <string.h> standard implementations
+// --- The purpose is to avoid using unsafe deprecated string functions that trigger
+// --- compiler warnings. And give these functions proper names because eish!
 // -----------------------------------------------------------------------------------
 inline size_t stringLen(const char* str)
 {
@@ -139,7 +139,12 @@ inline size_t stringLen(const char* str)
 
 inline void stringCopy(char* dest, size_t destSize, const char* src)
 {
+#ifdef _WIN32
     strcpy_s(dest, destSize, src);
+#else
+    // macOS/Unix - use strlcpy (available on macOS)
+    strlcpy(dest, src, destSize);
+#endif
 }
 
 inline int stringEquals(const char* strA, const char* strB)
@@ -231,18 +236,18 @@ String StringCreateBuffer(uint32_t bytes)
     result[bytes + 4] = '\0';
     return result;
 }
-inline uint32_t StringLen(String string)
+static inline uint32_t StringLen(String string)
 {
     return *(uint32_t*)string;
 }
 
-inline void StringFree(String str)
+static inline void StringFree(String str)
 {
     if (str == NULL) return;
     SallocFree(str, StringLen(str) + 5);
 }
 
-inline char* StringCstr(String str)
+static inline char* StringCstr(String str)
 {
     return (char*)str + 4;
 }
@@ -290,7 +295,7 @@ uint32_t NextUTF8Codepoint(String string, int* i)
     return cp;
 }
 
-inline uint32_t GetUTF32Codepoint(String string, int index) 
+static inline uint32_t GetUTF32Codepoint(String string, int index)
 {
     uint32_t codepoint;
     memcpy(&codepoint, StringCstr(string) + index * 4, 4);
@@ -347,7 +352,7 @@ String CstrConcatString(char* a, String b)
     if (a == NULL || b == NULL) return NULL;
     uint32_t aLen = strlen(a);
     uint32_t bLen = StringLen(b);
-    
+
     // allocate space for return string
     String output = NULL;
     output = SallocAlloc(aLen + bLen + 5);
@@ -412,7 +417,7 @@ int StringContains(String string, String search)
             return i - j;
         }
         else if (i < stringLen && stringCstr[i] != searchCstr[j]) {
-            if (j != 0) { j = lps[j-1]; } 
+            if (j != 0) { j = lps[j-1]; }
             else { i++; }
         }
     }
@@ -441,10 +446,10 @@ String StringReplaceFirst(String string, String target, String replacement)
 String StringRemoveSuffix(String string, String suffix)
 {
     // critical errors
-    if (string == NULL || 
-        suffix == NULL || 
-        StringLen(suffix) == 0 || 
-        StringLen(suffix) > StringLen(string)) { 
+    if (string == NULL ||
+        suffix == NULL ||
+        StringLen(suffix) == 0 ||
+        StringLen(suffix) > StringLen(string)) {
         return NULL;
     }
 
