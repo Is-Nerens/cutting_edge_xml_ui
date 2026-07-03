@@ -7,6 +7,16 @@
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 
+#if defined(_WIN32) || defined(_WIN64)
+    #define PLATFORM_WINDOWS
+#elif defined(__APPLE__) && defined(__MACH__)
+    #define PLATFORM_MACOS
+#elif defined(__linux__) || defined(__unix__)
+    #define PLATFORM_LINUX
+#else
+    #error "Unsupported platform"
+#endif
+
 #ifndef min
     #define min(a, b) (((a) < (b)) ? (a) : (b))
 #endif
@@ -166,10 +176,8 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
 
-    // Init Window Manager -> create the main window (hidden)
+    // Init Systems
     WindowManager_Init(&GUI.winManager);
-
-    // Init other systems
     ImageResourceManager_Init(&GUI.imageResourceManager);
     ErrorSystem_Init(&GUI.errorSystem);
 
@@ -177,7 +185,7 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     StringArena_Init(&GUI.nodeTextArena, 1024);
     Stringset_Init(&GUI.class_string_set, 1024, 100);
     Stringset_Init(&GUI.id_string_set, 1024, 100);
-    Stringmap_Init(&GUI.id_node_map, sizeof(NodeP*), 100, 1024);
+    Stringmap_Init(&GUI.id_node_map, sizeof(NodeP*), 128, 2048);
 
     // Init canvas context and text input containers
     GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));

@@ -494,9 +494,14 @@ int FontLoaderThread(void* data)
 {
     FontLoaderJobBatch* batch = (FontLoaderJobBatch*)data;
 
+    bool subpixelRendering = true;
+    #ifdef PLATFORM_MACOS
+        subpixelRendering = false;
+    #endif
+
     for (int i=batch->start; i<batch->end; i++) {
         FontLoadJob* job = &batch->jobs[i];
-        NU_Font_Create(job->font, StringCstr(job->filepath), job->fontSize, job->fontWeight, true);
+        NU_Font_Create(job->font, StringCstr(job->filepath), job->fontSize, job->fontWeight, subpixelRendering);
     }
 
     return 0;
@@ -510,7 +515,7 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
     int fontWeight = 400;
     char* fontName = NULL;
     char* fontSrc = NULL;
-    FontLoadJob fontJobs[32]; int fontJobCount = 0;
+    FontLoadJob fontJobs[64]; int fontJobCount = 0;
     int i = 0;
 
     while(i < tokens->size)
@@ -610,8 +615,8 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
     int threadCount = SDL_GetNumLogicalCPUCores();
     if (threadCount <= 0) threadCount = 1;
     if (threadCount > fontJobCount) threadCount = fontJobCount;
-    SDL_Thread* threads[32];
-    FontLoaderJobBatch batches[32];
+    SDL_Thread* threads[64];
+    FontLoaderJobBatch batches[64];
 
     // Create job batches
     int jobsPerThread = fontJobCount / threadCount;
@@ -631,13 +636,19 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
     }
 
     // Wait for work to finish
-    for (int t=0; t<threadCount; t++) {
+    for (int t = 0; t < threadCount; t++) {
         SDL_WaitThread(threads[t], NULL);
     }
 
     // Free filepath strings
     for (int i=0; i<fontJobCount; i++) {
         StringFree(fontJobs[i].filepath);
+    }
+
+    // Upload all font atlases to the GPU
+    for (int i=0; i<ss->fonts.size; i++) {
+        NU_Font* font = Container_GetAt(&ss->fonts, i);
+        NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
     }
 
     return 1;
@@ -1310,8 +1321,18 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRef
 
     // No fonts loaded -> default load embedded font
     if (ss->fonts.size == 0) {
+
+        bool subpixelRendering = true;
+        #ifdef PLATFORM_MACOS
+            subpixelRendering = false;
+        #endif
+
         NU_Font font;
-        if (NU_Font_Create_Default(&font, 14, 400, true)) Container_Add(&ss->fonts, &font); // FontID will be 0
+        if (NU_Font_Create_Default(&font, 14, 400, subpixelRendering)) {
+            int id = Container_Add(&ss->fonts, &font); // FontID will be 0
+            NU_Font* font = Container_Get(&ss->fonts, id);
+            NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
+        }
         else succeeded = 0;
     }
 

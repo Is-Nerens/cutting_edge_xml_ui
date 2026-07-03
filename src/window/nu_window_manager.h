@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 #include <window/nu_window_manager_structs.h>
 #include <window/cursor.h>
 
@@ -14,7 +14,7 @@ void CreateSubwindow(WindowManager* winManager, NodeP* node)
         win.window = sdlWin;
     }
     else {
-        win.window = SDL_CreateWindow("", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+        win.window = SDL_CreateWindow("", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     }
     win.windowNode = node;
     SDL_StartTextInput(win.window);
@@ -37,7 +37,7 @@ void WindowManager_DeleteSubwindow(WindowManager* winManager, NodeP* node)
     if (nuWin->window == winManager->lastClickedWindow) {
         winManager->lastClickedWindow = NULL;
     }
-    
+
     // Recycle window if there are none or few (max 8) recycled windows
     if (winManager->recycledSDLWindows.size < 8) {
         Array_Push(&winManager->recycledSDLWindows, &nuWin->window);
@@ -64,7 +64,7 @@ void WindowManager_Init(WindowManager* winManager)
 
     // Create root NU_Window
     NU_Window win;
-    win.window = SDL_CreateWindow("Window", 1000, 800, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    win.window = SDL_CreateWindow("Window", 1000, 800, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     win.windowNode = NULL; // Not assigned yet
     winManager->rootWindowID = Container_Add(&winManager->windows, &win);
     winManager->hoveredWindowNode = NULL;
@@ -74,7 +74,7 @@ void WindowManager_Init(WindowManager* winManager)
     GUI.gl_ctx = SDL_GL_CreateContext(win.window);
     SDL_GL_MakeCurrent(win.window, GUI.gl_ctx);
     SDL_GL_SetSwapInterval(0); // VSYNC ON
-    
+
     // Init glew
     glewInit();
     glEnable(GL_MULTISAMPLE);
@@ -174,8 +174,8 @@ void WindowManager_SetHoveredWindow(WindowManager* winManager, SDL_Window* windo
 inline void WindowBeginFrame(SDL_Window* window)
 {
     int w, h;
-    SDL_GetWindowSize(window, &w, &h);
-    glViewport(0, 0, w, h); glClearColor(0.0f, 0.0f, 0.0f, 1.0f); 
+    SDL_GetWindowSizeInPixels(window, &w, &h);
+    glViewport(0, 0, w, h); glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
@@ -189,10 +189,10 @@ inline void SetNodeDrawlist_Clipped(WindowManager* winManager, NodeP* node)
 {
     NU_WindowDrawlist* list = GetDrawlist(winManager, node->windowID);
     Array_Push(&list->clippedDrawNodes, &node);
-}   
+}
 
 inline void SetNodeDrawlist_Canvas(WindowManager* winManager, NodeP* node)
 {
     NU_WindowDrawlist* list = GetDrawlist(winManager, node->windowID);
     Array_Push(&list->canvasNodes, &node);
-}   
+}

@@ -132,12 +132,12 @@ void SallocFree(void* ptr, size_t size)
 // --- The purpose is to avoid using unsafe deprecated string functions that trigger
 // --- compiler warnings. And give these functions proper names because eish!
 // -----------------------------------------------------------------------------------
-inline size_t stringLen(const char* str)
+static inline size_t stringLen(const char* str)
 {
     return strlen(str);
 }
 
-inline void stringCopy(char* dest, size_t destSize, const char* src)
+static inline void stringCopy(char* dest, size_t destSize, const char* src)
 {
 #ifdef _WIN32
     strcpy_s(dest, destSize, src);
@@ -147,23 +147,23 @@ inline void stringCopy(char* dest, size_t destSize, const char* src)
 #endif
 }
 
-inline int stringEquals(const char* strA, const char* strB)
+static inline int stringEquals(const char* strA, const char* strB)
 {
     return (strcmp(strA, strB) == 0);
 }
 
-inline void stringNullTerminate(char* str, size_t bufSize)
+static inline void stringNullTerminate(char* str, size_t bufSize)
 {
     str[bufSize - 1] = '\0';
 }
 
-inline void stringNullTerminateAt(char* str, size_t bufSize, size_t index)
+static inline void stringNullTerminateAt(char* str, size_t bufSize, size_t index)
 {
     if (index >= bufSize) index = bufSize - 1;
     str[index] = '\0';
 }
 
-inline int stringFormat(char* buf, size_t bufSize, const char* format, ...)
+int stringFormat(char* buf, size_t bufSize, const char* format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -172,7 +172,7 @@ inline int stringFormat(char* buf, size_t bufSize, const char* format, ...)
     return n;
 }
 
-inline int stringAppend(char* dest, size_t destSize, const char* src)
+static inline int stringAppend(char* dest, size_t destSize, const char* src)
 {
     size_t len = strlen(dest);
     if (len >= destSize) return 0;
@@ -180,24 +180,24 @@ inline int stringAppend(char* dest, size_t destSize, const char* src)
     return (n >= 0 && (size_t)n < (destSize - len));
 }
 
-inline int stringContains(const char* str, const char* subStr)
+static inline int stringContains(const char* str, const char* subStr)
 {
     return strstr(str, subStr) != NULL;
 }
 
-inline int stringFind(const char* str, const char* subStr)
+static inline int stringFind(const char* str, const char* subStr)
 {
     const char* pos = strstr(str, subStr);
     return pos ? (int)(pos - str) : -1;
 }
 
-inline int stringStartsWith(const char* str, const char* prefix)
+static inline int stringStartsWith(const char* str, const char* prefix)
 {
     size_t len = strlen(prefix);
     return strncmp(str, prefix, len) == 0;
 }
 
-inline int stringEndsWith(const char* str, const char* suffix)
+static inline int stringEndsWith(const char* str, const char* suffix)
 {
     size_t strLen = strlen(str);
     size_t sufLen = strlen(suffix);

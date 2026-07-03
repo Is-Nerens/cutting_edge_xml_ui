@@ -2,12 +2,12 @@
 
 # Paths
 srcInclude="src"
-sdlLib="src/libraries/sdl3/lib"
+sdlLib="src/libraries/sdl3/mac"
 sdlInclude="src/libraries/sdl3/include"
 glewInclude="src/libraries/glew/include"
-glewLib="src/libraries/glew/lib"
+glewLib="src/libraries/glew/mac"
 freetypeInclude="src/libraries/freetype/include"
-freetypeLib="src/libraries/freetype/lib"
+freetypeLib="src/libraries/freetype/mac"
 
 # Compile
 clang -std=c99 -O3 \
@@ -21,11 +21,11 @@ clang -std=c99 -O3 \
     -L"$freetypeLib" \
     -lGLEW -lSDL3 -framework OpenGL -framework Cocoa -lfreetype \
     -shared \
-    -o "nodus/mac/lib/nodus.dylib" \
+    -o "nodus/mac/libnodus.dylib" \
     -Wno-deprecated-declarations
 
 # Remove the .exp file if it exists (equivalent to Windows .exp)
-rm -f nodus/mac/lib/nodus.exp
+rm -f nodus/mac/libnodus.exp
 
 # Copy nodus.h into nodus/mac/include
-cp -f src/nodus.h nodus/mac/include/
+cp src/nodus.h nodus/include/

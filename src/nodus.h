@@ -5,7 +5,9 @@
 #include <stdint.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
-#include <freetype/freetype.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_MULTIPLE_MASTERS_H
 
 // Import macro
 #if defined(IPC_STATIC)
@@ -307,7 +309,7 @@ _IMPORT void NU_Quit(void);
 _IMPORT int NU_Running(void);
 
 // Error functions
-_IMPORT inline void NU_ClearErrors(void);
+_IMPORT void NU_ClearErrors(void);
 _IMPORT const char* NU_GetNextError(void);
 
 // Window functions
@@ -327,20 +329,20 @@ _IMPORT void NU_Set_Cursor_NwseResize(void);
 _IMPORT void NU_Set_Cursor_NeswResize(void);
 
 // DOM functions
-_IMPORT inline Node* NU_PARENT(Node* node);
-_IMPORT inline Node* NU_CHILD(Node* node, uint32_t childIndex);
-_IMPORT inline int NU_CHILD_COUNT(Node* node);
-_IMPORT inline Node* NU_CREATE_NODE(Node* parent, NodeType type);
-_IMPORT inline void NU_DELETE_NODE(Node* node);
-_IMPORT inline void NU_SHIFT_NODE_IN_PARENT(Node* node, int index);
-_IMPORT inline void NU_REPARENT_NODE(Node* node, Node* newParent);
+_IMPORT Node* NU_PARENT(Node* node);
+_IMPORT Node* NU_CHILD(Node* node, uint32_t childIndex);
+_IMPORT int NU_CHILD_COUNT(Node* node);
+_IMPORT Node* NU_CREATE_NODE(Node* parent, NodeType type);
+_IMPORT void NU_DELETE_NODE(Node* node);
+_IMPORT void NU_SHIFT_NODE_IN_PARENT(Node* node, int index);
+_IMPORT void NU_REPARENT_NODE(Node* node, Node* newParent);
 _IMPORT float NU_NODE_SCROLL(Node* node);
-_IMPORT inline const char* NU_INPUT_TEXT_CONTENT(Node* node);
+_IMPORT const char* NU_INPUT_TEXT_CONTENT(Node* node);
 _IMPORT void NU_FOCUS_ON_INPUT(Node* node);
 _IMPORT void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text);
 _IMPORT Node* NU_HOVERED_NODE();
-_IMPORT inline void NU_SHOW(Node* node);
-_IMPORT inline void NU_HIDE(Node* node);
+_IMPORT void NU_SHOW(Node* node);
+_IMPORT void NU_HIDE(Node* node);
 _IMPORT int NU_IS_SHOWN(Node* node);
 _IMPORT void NU_SET_WINDOW_TITLE(Node* windowNode, const char* title);
 _IMPORT Node* NU_Get_Node_By_Id(const char* id);

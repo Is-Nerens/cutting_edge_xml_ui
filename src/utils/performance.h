@@ -4,25 +4,22 @@
 #include <stdint.h>
 
 // Platform detection
-#if defined(_WIN32) || defined(_WIN64)
-    #define PLATFORM_WINDOWS 1
+#ifdef PLATFORM_WINDOWS
     #include <windows.h>
-#elif defined(__APPLE__) && defined(__MACH__)
-    #define PLATFORM_MACOS 1
+#endif
+#ifdef PLATFORM_MACOS
     #include <mach/mach_time.h>
     #include <time.h>
-#elif defined(__linux__) || defined(__unix__)
-    #define PLATFORM_LINUX 1
+#endif
+#ifdef PLATFORM_LINUX
     #include <time.h>
-#else
-    #error "Unsupported platform"
 #endif
 
 // -----------------------------
 // High precision wall clock timer (microseconds)
 // -----------------------------
 
-#if PLATFORM_WINDOWS
+#ifdef PLATFORM_WINDOWS
 
 static LARGE_INTEGER _PERFORMANCE_freq;
 static LARGE_INTEGER _PERFORMANCE_start_time;
@@ -47,8 +44,9 @@ static inline void timer_stop() {
                         (double)_PERFORMANCE_freq.QuadPart;
     printf("Elapsed time: %.3f us\n", elapsed_us);
 }
+#endif
 
-#elif PLATFORM_MACOS
+#ifdef PLATFORM_MACOS
 
 static uint64_t _PERFORMANCE_start_time = 0;
 static mach_timebase_info_data_t _PERFORMANCE_timebase = {0};
@@ -70,8 +68,9 @@ static inline void timer_stop() {
     double elapsed_us = (double)elapsed_ns / 1000.0;
     printf("Elapsed time: %.3f us\n", elapsed_us);
 }
+#endif
 
-#elif PLATFORM_LINUX
+#ifdef PLATFORM_LINUX
 
 static struct timespec _PERFORMANCE_start_time;
 static int _PERFORMANCE_initialized = 0;

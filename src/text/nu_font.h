@@ -225,8 +225,6 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int heightPixels, int 
         NU_Font_Atlas_Add_Glyph(&font->atlas, stored_glyph, bmp);
     }
 
-    NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
-
     font->face = face;
     return 1; // Success
 }

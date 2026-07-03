@@ -110,7 +110,7 @@ static void NU_CalculateFitSizeWidths(ReverseBreadthFirstSearch* rbfs)
         if (node->type == NU_WINDOW) {
             int winWidth, winHeight;
             SDL_Window* window = GetSDL_Window(&GUI.winManager, node->windowID);
-            SDL_GetWindowSize(window, &winWidth, &winHeight);
+            SDL_GetWindowSizeInPixels(window, &winWidth, &winHeight);
             node->node.width = (float)winWidth;
             node->node.height = (float)winHeight;
         }

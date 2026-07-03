@@ -63,7 +63,7 @@ _EXPORT void NU_Render()
 // -----------------------
 // --- Error functions ---
 // -----------------------
-_EXPORT inline void NU_ClearErrors() {
+_EXPORT void NU_ClearErrors() {
     ErrorSystem_Clear(&GUI.errorSystem);
 }
 
@@ -236,16 +236,6 @@ _EXPORT const char* NU_INPUT_TEXT_CONTENT(Node* node) {
     return inputText->buffer;
 }
 
-_EXPORT void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text) {
-    NodeP* nodeP = NODEP_OF(node);
-    if (nodeP->type != NU_INPUT) return;
-    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, nodeP->fontId);
-    InputText* inputText = Container_Get(&GUI.textInputs, nodeP->typeData.input.textInputHandle);
-    InputText_SetText(inputText, nodeP, font, text);
-    TriggerOnInputChangedEvent(nodeP, "");
-    GUI.awaiting_redraw = true;
-}
-
 _EXPORT void NU_FOCUS_ON_INPUT(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
     if (nodeP->type != NU_INPUT) return;
@@ -289,6 +279,16 @@ _EXPORT void NU_FOCUS_ON_INPUT(Node* node) {
         TriggerOnInputFocusEvent(nodeP);
         NU_Render();
     }
+}
+
+_EXPORT void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text) {
+    NodeP* nodeP = NODEP_OF(node);
+    if (nodeP->type != NU_INPUT) return;
+    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, nodeP->fontId);
+    InputText* inputText = Container_Get(&GUI.textInputs, nodeP->typeData.input.textInputHandle);
+    InputText_SetText(inputText, nodeP, font, text);
+    TriggerOnInputChangedEvent(nodeP, "");
+    GUI.awaiting_redraw = true;
 }
 
 _EXPORT Node* NU_HOVERED_NODE() {
