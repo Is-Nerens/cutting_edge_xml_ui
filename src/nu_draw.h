@@ -297,7 +297,7 @@ void NU_Draw()
         Index_List_Init(&text_index_buffers[i], 512);
     }
 
-    Array_Clear(&GUI.borderRects);
+    Array_Clear(&GUI.borderRectRenderDataArray);
 
     // Upload / reupload font atlases as needed
     for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
@@ -330,10 +330,10 @@ void NU_Draw()
             float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
             // Construct border rect data
-            Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRects);
+            Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRectRenderDataArray);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
-                Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRects);
+                Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectRenderDataArray);
             }
             // Construct text mesh for node's textContent
             if (node->node.textContent != NULL) {
@@ -371,7 +371,7 @@ void NU_Draw()
         }
 
         // 2. Draw all unclipped border rects (1 draw call)
-        Draw_SDF_Border_Rects(GUI.borderRects, winW, winH); Array_Clear(&GUI.borderRects);
+        Draw_SDF_Border_Rects(GUI.borderRectRenderDataArray, winW, winH); Array_Clear(&GUI.borderRectRenderDataArray);
 
         // 3. Draw all unclipped text (1 draw call per font)
         for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
@@ -390,8 +390,8 @@ void NU_Draw()
 
             // Draw border rect (1 draw call)
             NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
-            Add_NodeRectRenderData(node, z, clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRects);
-            Draw_SDF_Border_Rects(GUI.borderRects, winW, winH); Array_Clear(&GUI.borderRects);
+            Add_NodeRectRenderData(node, z, clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRectRenderDataArray);
+            Draw_SDF_Border_Rects(GUI.borderRectRenderDataArray, winW, winH); Array_Clear(&GUI.borderRectRenderDataArray);
 
             // Draw text content (1 draw call)
             if (node->node.textContent != NULL) {

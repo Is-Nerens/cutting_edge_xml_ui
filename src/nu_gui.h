@@ -87,10 +87,6 @@ struct NU_GUI
     NodeP* scroll_mouse_down_node;
     float v_scroll_thumb_grab_offset;
 
-    // Mouse position state
-    float mouseDownGlobalX;
-    float mouseDownGlobalY;
-
     // States
     bool running;
     bool awaiting_redraw;
@@ -102,7 +98,6 @@ struct NU_GUI
 
     // Events
     EventSystem eventSystem;
-
     Set deletedNodesWithRegisteredEvents;
     Uint32 SDL_CUSTOM_RENDER_EVENT;
 
@@ -122,7 +117,7 @@ struct NU_GUI
     BreadthFirstSearch bfs;
     ReverseBreadthFirstSearch rbfs;
     Array layoutScrollAutoNodes;
-    Array borderRects;
+    Array borderRectRenderDataArray;
 };
 
 // ---------------------------
@@ -157,7 +152,7 @@ void NU_Internal_Quit()
     Stylesheet_Free(&GUI.stylesheet);
     Container_Free(&GUI.canvasContexts);
     Container_Free(&GUI.textInputs);
-    Array_Free(&GUI.borderRects);
+    Array_Free(&GUI.borderRectRenderDataArray);
     BreadthFirstSearch_Free(&GUI.bfs);
     ReverseBreadthFirstSearch_Free(&GUI.rbfs);
     EventSystem_Free();
@@ -196,7 +191,7 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
 
     // Init layout and draw datastructures
     Array_Init(&GUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);
-    Array_Init(&GUI.borderRects, sizeof(BorderRectRenderData), 2000);
+    Array_Init(&GUI.borderRectRenderDataArray, sizeof(BorderRectRenderData), 2000);
 
     // Cursors
     GUI.cursorDefault    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
@@ -258,13 +253,19 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     ImageResourceLoader_UploadImagesAndFree(&imageResourceLoader);
 
     // Apply css
+    printf("applying css\n");
+    timer_start();
     if (!NU_Internal_Apply_Stylesheet(&GUI.stylesheet)) {
         NU_Internal_Quit();
         return 0;
     }
+    timer_stop();
 
+    printf("calculating layout\n");
+    timer_start();
     NU_Layout(); // Initial layout calculation
     GUI.running = true;
+    timer_stop();
 
     // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);

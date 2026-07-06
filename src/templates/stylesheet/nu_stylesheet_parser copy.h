@@ -3,7 +3,6 @@
 #include "../nu_token_array.h"
 #include "nu_stylesheet_structs.h"
 #include "nu_stylesheet_tokens.h"
-#include <stdio.h>
 
 // You might not like it, but this is what *peak performance looks like
 void Stylesheet_Overwrite_Style_Item(Stylesheet_Item* item, Stylesheet_Item* overwriter)
@@ -458,451 +457,6 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
     }
 }
 
-void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Token token, Stylesheet_Item* item, StylesheetVariable variable, ImageResourceLoader* imageResourceLoader)
-{
-    switch (token)
-    {
-        // Set layout direction
-        case STYLE_LAYOUT_DIRECTION_PROPERTY:
-            switch(variable.type)
-            {
-                case STYLESHEET_VARIABLE_DTYPE_VERTICAL:
-                    item->layoutFlags |= LAYOUT_VERTICAL;
-                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; break;
-                    break;
-                case STYLESHEET_VARIABLE_DTYPE_HORIZONTAL:
-                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; break;
-                default:
-                    break;
-            }
-            break;
-
-        // Set growth
-        case STYLE_GROW_PROPERTY:
-            switch(variable.type)
-            {
-                case STYLESHEET_VARIABLE_DTYPE_VERTICAL: item->layoutFlags |= GROW_VERTICAL; break;
-                case STYLESHEET_VARIABLE_DTYPE_HORIZONTAL: item->layoutFlags |= GROW_HORIZONTAL; break;
-                case STYLESHEET_VARIABLE_DTYPE_BOTH: item->layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL); break;
-                default: break;
-            }
-            item->propertyFlags |= PROPERTY_FLAG_GROW;
-            break;
-
-        // Set overflow behaviour
-        case STYLE_OVERFLOW_V_PROPERTY:
-            switch(variable.type)
-            {
-                case STYLESHEET_VARIABLE_DTYPE_SCROLL:
-                    item->layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
-                    item->propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL; break;
-                case STYLESHEET_VARIABLE_DTYPE_HORIZONTAL:
-                    item->propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL; break;
-                default:
-                    break;
-            }
-            break;
-
-        case STYLE_OVERFLOW_H_PROPERTY:
-            switch(variable.type)
-            {
-                case STYLESHEET_VARIABLE_DTYPE_SCROLL:
-                    item->layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
-                    item->propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL; break;
-                case STYLESHEET_VARIABLE_DTYPE_HORIZONTAL:
-                    item->propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL; break;
-                default:
-                    break;
-            }
-            break;
-
-        // Relative/Absolute positioning
-        case STYLE_POSITION_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_ABSOLUTE) {
-                item->layoutFlags |= POSITION_ABSOLUTE;
-                item->propertyFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
-            } else if (variable.type == STYLESHEET_VARIABLE_DTYPE_RELATIVE) {
-                item->propertyFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
-            }
-            break;
-
-        // Hide/show
-        case STYLE_HIDE_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_TRUE) {
-                item->layoutFlags |= HIDDEN;
-                item->propertyFlags |= PROPERTY_FLAG_HIDDEN;
-            }
-            else if (variable.type == STYLESHEET_VARIABLE_DTYPE_FALSE) {
-                item->propertyFlags |= PROPERTY_FLAG_HIDDEN;
-            }
-            break;
-
-        // Ignore mouse
-        case STYLE_IGNORE_MOUSE_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_TRUE) {
-                item->layoutFlags |= IGNORE_MOUSE;
-                item->propertyFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
-            }
-            else if (variable.type == STYLESHEET_VARIABLE_DTYPE_FALSE) {
-                item->propertyFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
-            }
-            break;
-
-        // Set gap
-        case STYLE_GAP_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->gap = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_GAP;
-            }
-            break;
-
-        // Set preferred width
-        case STYLE_WIDTH_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->prefWidth = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
-            }
-            break;
-
-        // Set min width
-        case STYLE_MIN_WIDTH_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->minWidth = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_MIN_WIDTH;
-            }
-            break;
-
-        // Set max width
-        case STYLE_MAX_WIDTH_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->maxWidth = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_MAX_WIDTH;
-            }
-            break;
-
-        // Set preferred height
-        case STYLE_HEIGHT_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->prefHeight = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
-            }
-            break;
-
-        // Set min height
-        case STYLE_MIN_HEIGHT_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->minHeight = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_MIN_HEIGHT;
-            }
-            break;
-
-        // Set max height
-        case STYLE_MAX_HEIGHT_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->maxHeight = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_MAX_HEIGHT;
-            }
-            break;
-
-        // Set horizontal alignment
-        case STYLE_ALIGN_H_PROPERTY:
-            switch(variable.type) {
-                case STYLESHEET_VARIABLE_DTYPE_LEFT:
-                    item->horizontalAlignment = 0;
-                    item->propertyFlags |= PROPERTY_FLAG_ALIGN_H;
-                    break;
-                case STYLESHEET_VARIABLE_DTYPE_CENTER:
-                    item->horizontalAlignment = 1;
-                    item->propertyFlags |= PROPERTY_FLAG_ALIGN_H;
-                    break;
-                case STYLESHEET_VARIABLE_DTYPE_RIGHT:
-                    item->horizontalAlignment = 2;
-                    item->propertyFlags |= PROPERTY_FLAG_ALIGN_H;
-                    break;
-                default:
-                    break;
-            }
-            break;
-
-        // Set vertical alignment
-        case STYLE_ALIGN_V_PROPERTY:
-            switch(variable.type) {
-                case STYLESHEET_VARIABLE_DTYPE_TOP:
-                    item->verticalAlignment = 0;
-                    item->propertyFlags |= PROPERTY_FLAG_ALIGN_V;
-                    break;
-                case STYLESHEET_VARIABLE_DTYPE_CENTER:
-                    item->verticalAlignment = 1;
-                    item->propertyFlags |= PROPERTY_FLAG_ALIGN_V;
-                    break;
-                case STYLESHEET_VARIABLE_DTYPE_BOTTOM:
-                    item->verticalAlignment = 2;
-                    item->propertyFlags |= PROPERTY_FLAG_ALIGN_V;
-                    break;
-                default:
-                    break;
-            }
-            break;
-
-        // Set horizontal text alignment
-        case STYLE_TEXT_ALIGN_H_PROPERTY:
-            switch(variable.type) {
-                case STYLESHEET_VARIABLE_DTYPE_LEFT:
-                    item->horizontalTextAlignment = 0;
-                    item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
-                    break;
-                case STYLESHEET_VARIABLE_DTYPE_CENTER:
-                    item->horizontalTextAlignment = 1;
-                    item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
-                    break;
-                case STYLESHEET_VARIABLE_DTYPE_RIGHT:
-                    item->horizontalTextAlignment = 2;
-                    item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
-                    break;
-                default:
-                    break;
-            }
-            break;
-
-        // Set vertical text alignment
-        case STYLE_TEXT_ALIGN_V_PROPERTY:
-            switch(variable.type) {
-                case STYLESHEET_VARIABLE_DTYPE_TOP:
-                    item->verticalTextAlignment = 0;
-                    item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
-                    break;
-                case STYLESHEET_VARIABLE_DTYPE_CENTER:
-                    item->verticalTextAlignment = 1;
-                    item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
-                    break;
-                case STYLESHEET_VARIABLE_DTYPE_BOTTOM:
-                    item->verticalTextAlignment = 2;
-                    item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
-                    break;
-                default:
-                    break;
-            }
-            break;
-
-        // Set absolute position properties
-        case STYLE_LEFT_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->left = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_LEFT;
-            }
-            break;
-
-        case STYLE_RIGHT_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->right = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_RIGHT;
-            }
-            break;
-
-        case STYLE_TOP_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->top = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_TOP;
-            }
-            break;
-
-        case STYLE_BOTTOM_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->bottom = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_BOTTOM;
-            }
-            break;
-
-        // Set background colour
-        case STYLE_BACKGROUND_COLOUR_PROPERTY: {
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_RGB) {
-                struct RGB rgb = UnpackRGB(variable.value);
-                item->backgroundR = rgb.r;
-                item->backgroundG = rgb.g;
-                item->backgroundB = rgb.b;
-            }
-            else if (variable.type == STYLESHEET_VARIABLE_DTYPE_NONE) {
-                item->propertyFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
-                item->layoutFlags |= HIDE_BACKGROUND;
-            }
-            break;
-        }
-
-        // Set border colour
-        case STYLE_BORDER_COLOUR_PROPERTY: {
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_RGB) {
-                struct RGB rgb = UnpackRGB(variable.value);
-                item->borderR = rgb.r;
-                item->borderG = rgb.g;
-                item->borderB = rgb.b;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_COLOUR;
-            }
-            break;
-        }
-
-        // Set text colour
-        case STYLE_TEXT_COLOUR_PROPERTY: {
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_RGB) {
-                struct RGB rgb = UnpackRGB(variable.value);
-                item->textR = rgb.r;
-                item->textG = rgb.g;
-                item->textB = rgb.b;
-                item->propertyFlags |= PROPERTY_FLAG_TEXT_COLOUR;
-            }
-            break;
-        }
-
-        // Set border width
-        case STYLE_BORDER_WIDTH_PROPERTY: {
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                u8 border_width = variable.value;
-                item->borderTop = border_width;
-                item->borderBottom = border_width;
-                item->borderLeft = border_width;
-                item->borderRight = border_width;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_TOP;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_LEFT;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT;
-            }
-            break;
-        }
-
-        case STYLE_BORDER_TOP_WIDTH_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->borderTop = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_TOP;
-            }
-            break;
-
-        case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->borderBottom = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
-            }
-            break;
-
-        case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->borderLeft = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_LEFT;
-            }
-            break;
-
-        case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->borderRight = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT;
-            }
-            break;
-
-        // Set border radii
-        case STYLE_BORDER_RADIUS_PROPERTY: {
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                u8 border_radius = variable.value;
-                item->borderRadiusTl = border_radius;
-                item->borderRadiusTr = border_radius;
-                item->borderRadiusBl = border_radius;
-                item->borderRadiusBr = border_radius;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
-            }
-            break;
-        }
-
-        case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->borderRadiusTl = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
-            }
-            break;
-
-        case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->borderRadiusTr = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
-            }
-            break;
-
-        case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->borderRadiusBl = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
-            }
-            break;
-
-        case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->borderRadiusBr = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
-            }
-            break;
-
-        // Set padding
-        case STYLE_PADDING_PROPERTY: {
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                u8 pad = variable.value;
-                item->padTop = pad;
-                item->padBottom = pad;
-                item->padLeft = pad;
-                item->padRight = pad;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_TOP;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_BOTTOM;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_LEFT;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_RIGHT;
-            }
-            break;
-        }
-
-        case STYLE_PADDING_TOP_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->padTop = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_TOP;
-            }
-            break;
-
-        case STYLE_PADDING_BOTTOM_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->padBottom = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_BOTTOM;
-            }
-            break;
-
-        case STYLE_PADDING_LEFT_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->padLeft = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_LEFT;
-            }
-            break;
-
-        case STYLE_PADDING_RIGHT_PROPERTY:
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->padRight = variable.value;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_RIGHT;
-            }
-            break;
-
-        case STYLE_FONT_PROPERTY: {
-            break;
-        }
-
-        case STYLE_INPUT_TYPE_PROPERTY: // the else case should probably
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_INPUT_NUMBER) {
-                item->propertyFlags |= PROPERTY_FLAG_INPUT_TYPE;
-                item->inputType = 1;
-            }
-            else {
-                item->inputType = 0;
-            }
-            break;
-
-        default:
-            break;
-    }
-}
-
 StyleTextRef* BinarySearchTextRef(Array* textRefs, int targetTokenIndex) {
     int left = 0;
     int right = textRefs->size - 1;
@@ -953,65 +507,6 @@ int FontLoaderThread(void* data)
     return 0;
 }
 
-void Stylesheet_Parse_Variable(const char* text, int textLen, int* valueOut, enum StylesheetVariableDtype* typeOut)
-{
-    struct RGB rgb;
-    int _int;
-    if (strcmp(text, "v") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_VERTICAL;
-    }
-    else if (strcmp(text, "h") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_HORIZONTAL;
-    }
-    else if (strcmp(text, "b") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_BOTH;
-    }
-    else if (strcmp(text, "s") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_SCROLL;
-    }
-    else if (strcmp(text, "none") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_NONE;
-    }
-    else if (strcmp(text, "left") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_LEFT;
-    }
-    else if (strcmp(text, "right") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_RIGHT;
-    }
-    else if (strcmp(text, "top") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_TOP;
-    }
-    else if (strcmp(text, "bottom") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_BOTTOM;
-    }
-    else if (strcmp(text, "center") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_CENTER;
-    }
-    else if (strcmp(text, "true") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_TRUE;
-    }
-    else if (strcmp(text, "false") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_FALSE;
-    }
-    else if (strcmp(text, "absolute") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_ABSOLUTE;
-    }
-    else if (strcmp(text, "relative") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_RELATIVE;
-    }
-    else if (strcmp(text, "number") == 0) {
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_INPUT_NUMBER;
-    }
-    else if (Parse_Hexcode(text, textLen, &rgb)) {
-        *valueOut = PackRGB(rgb);
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_RGB;
-    }
-    else if (String_To_Int(&_int, text)) {
-        *valueOut = _int;
-        *typeOut = STYLESHEET_VARIABLE_DTYPE_NUMBER;
-    }
-}
-
 static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet* ss, Array* textRefs, LinearStringmap* variableMap)
 {
     int inVariableSelector = 0;
@@ -1042,25 +537,27 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
                 char* varName = &src[varNameTextRef->src_index];
                 char* valText = &src[valTextRef->src_index];
 
-                // Try parse variable, store as packed int and infer type
-                StylesheetVariable newVar;
-                newVar.type = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
-                newVar.value = 0;
-                Stylesheet_Parse_Variable(valText, valTextRef->char_count, &newVar.value, &newVar.type);
-                newVar.value_DEFAULT = newVar.value;
-                newVar.type_DEFAULT = newVar.type;
+                // Try parse variable as a hex RGBA and int
+                struct RGB rgb;
+                int varVal;
+                if (Parse_Hexcode(valText, valTextRef->char_count, &rgb)) {
+                    varVal = ((int)r << 16) | ((int)g << 8) | ((int)b);
+                }
+                else if (!String_To_Int(&varVal, valText)) {
+                    varVal = 0;
+                }
 
                 // Overwrite variable's existing value
-                u16* existingVarIndex = LinearStringmap_Get(variableMap, varName);
-                if (existingVarIndex) {
-                    StylesheetVariable* variable = Array_Get(&ss->variables, *existingVarIndex);
-                    *variable = newVar;
+                u16* variableIndex = LinearStringmap_Get(variableMap, varName);
+                if (variableIndex) {
+                    int* variableValue = Array_Get(&ss->variableValues, *variableIndex);
+                    *variableValue = varVal;
                 }
                 // Variable's first declaration
                 else {
                     // Add variable value
-                    Array_Push(&ss->variables, &newVar);
-                    u16 index = ss->variables.size - 1;
+                    Array_Push(&ss->variableValues, &varVal);
+                    u16 index = ss->variableValues.size - 1;
 
                     // Add index to variableMap
                     LinearStringmap_Set(variableMap, varName, &index);
@@ -1078,13 +575,10 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
     return 1;
 }
 
-static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Stylesheet* ss, Array* textRefs, LinearStringmap* variableMap)
+static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styleshee* ss, Array* textRefs, LinearStringmap* variableMap)
 {
     int inScreenQuerySelector = 0;
     int i = 0;
-
-    StylesheetScreenQuery* screenQuery = NULL;
-
 
     while(i < tokens->size)
     {
@@ -1098,19 +592,12 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
             enum NU_Style_Token screenWidthToken = TokenArray_Get(tokens, i+2);
 
             // Get screen width text ref
-            StyleTextRef* textRef = BinarySearchTextRef(textRefs, i+2);
+            textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
             const char* text = &src[textRef->src_index];
-            int screenWidth;
-            if (String_To_Int(&screenWidth, text)) {
 
-                // Add screen query
-                screenQuery = Array_PushEmpty(&ss->screenQueries);
-                screenQuery->screenWidth = screenWidth;
-                screenQuery->comparator = comparatorToken;
-                screenQuery->overrideArrayPartitionStart = ss->variableOverrides.size;
-                screenQuery->overrideArrayPartitionCount = 0;
-            }
-            else {
+            // Set screen query object values
+            screenQueryObj.comparator = comparatorToken;
+            if (!String_To_Int(&screenQueryObj.screenWidth, text)) {
                 char errMessage[128];
                 snprintf(errMessage, sizeof(errMessage), "<CSS Error> Expected screen width (int), got \"%s\" ','", text);
                 return 0;
@@ -1119,52 +606,19 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
             inScreenQuerySelector = 1;
             i += 4;
         }
-        else if (token == STYLE_VARIABLE_NAME && inScreenQuerySelector) {
-
+        else if (token == STYLE_VARIABLE_NAME) {
             if (!AssertVariableAssignmentGrammar(tokens, i)) return 0;
 
-            // Use binary search to find the desired text refs
-            StyleTextRef* varNameTextRef = BinarySearchTextRef(textRefs, i);
-            StyleTextRef* valTextRef = BinarySearchTextRef(textRefs, i+2);
+            if (inScreenQuerySelector) {
 
-            // If text ref -> parse variable
-            if (varNameTextRef && valTextRef) {
+                // Use binary search to find the desired text refs
+                StyleTextRef* varNameTextRef = BinarySearchTextRef(textRefs, i);
+                StyleTextRef* propertyValueTextRef = BinarySearchTextRef(textRefs, i+2);
 
-                // Get variable name
-                char* varName = &src[varNameTextRef->src_index];
-                char* valText = &src[valTextRef->src_index];
-
-                // Get existing variable index
-                u16* existingVarIndex = LinearStringmap_Get(variableMap, varName);
-                if (existingVarIndex) {
-                    StylesheetVariable* variable = Array_Get(&ss->variables, *existingVarIndex);
-
-                    // Try parse variable, store as packed int and infer type
-                    StylesheetVariableOverride varOverride;
-                    varOverride.type_OVERRIDE = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
-                    varOverride.value_OVERRIDE = 0;
-                    varOverride.variableIndex = *existingVarIndex;
-                    Stylesheet_Parse_Variable(valText, valTextRef->char_count, &varOverride.value_OVERRIDE, &varOverride.type_OVERRIDE);
-
-                    // Add variable override
-                    Array_Push(&ss->variableOverrides, &varOverride);
-                    screenQuery->overrideArrayPartitionCount++;
-                }
-                // Variable not initialised (not found in @var) -> error
-                else {
-                    char errMessage[128];
-                    snprintf(errMessage, sizeof(errMessage), "<CSS Error> Variable \"%s\" uninitialised! Add this variable to @var','", varName);
-                    return 0;
-                }
+                // If text ref ->
             }
         }
-        else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
-            inScreenQuerySelector = 0;
-        }
-        i += 1;
     }
-
-    return 1;
 }
 
 static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens, Array* textRefs)
@@ -1188,11 +642,12 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
 
             StyleTextRef* textRef = BinarySearchTextRef(textRefs, i+1);
             if (textRef) fontName = &src[textRef->src_index];
+
             inFontSelector = 1;
             i += 3; continue;
         }
 
-        else if (NU_Is_Property_Identifier_Token(token) && inFontSelector) {
+        else if (NU_Is_Property_Identifier_Token(token)) {
 
             if (!AssertPropertyIdentifierGrammar(tokens, i)) return 0;
 
@@ -1228,34 +683,38 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
 
             i += 3; continue;
         }
-        else if (token == STYLE_SELECTOR_CLOSE_BRACE && inFontSelector) {
+        else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
 
-            if (fontSrc != NULL) {
+            if (!AssertSelectionClosingBraceGrammar(tokens, i)) return 0;
 
-                // Create a new font
-                void* found_font = LinearStringmap_Get(&ss->fontNameIndexMap, fontName);
-                if (found_font == NULL && fontJobCount < 64)
-                {
-                    // Create uninitialised font
-                    NU_Font font;
-                    u8 createFontID = Container_Add(&ss->fonts, &font);
-                    NU_Font* createFont = Container_Get(&ss->fonts, createFontID);
-                    LinearStringmap_Set(&ss->fontNameIndexMap, fontName, &createFontID);
+            if (inFontSelector) {
+                if (fontSrc != NULL) {
 
-                    // Create a font job
-                    fontJobs[fontJobCount].filepath = StringCreate(fontSrc);
-                    fontJobs[fontJobCount].fontSize = fontSize;
-                    fontJobs[fontJobCount].fontWeight = fontWeight;
-                    fontJobs[fontJobCount].font = createFont;
-                    fontJobCount++;
+                    // Create a new font
+                    void* found_font = LinearStringmap_Get(&ss->fontNameIndexMap, fontName);
+                    if (found_font == NULL && fontJobCount < 64)
+                    {
+                        // Create uninitialised font
+                        NU_Font font;
+                        u8 createFontID = Container_Add(&ss->fonts, &font);
+                        NU_Font* createFont = Container_Get(&ss->fonts, createFontID);
+                        LinearStringmap_Set(&ss->fontNameIndexMap, fontName, &createFontID);
+
+                        // Create a font job
+                        fontJobs[fontJobCount].filepath = StringCreate(fontSrc);
+                        fontJobs[fontJobCount].fontSize = fontSize;
+                        fontJobs[fontJobCount].fontWeight = fontWeight;
+                        fontJobs[fontJobCount].font = createFont;
+                        fontJobCount++;
+                    }
                 }
-            }
-            else {
-                // Free filepath strings
-                for (int i=0; i<fontJobCount; i++) {
-                    StringFree(fontJobs[i].filepath);
+                else {
+                    // Free filepath strings
+                    for (int i=0; i<fontJobCount; i++) {
+                        StringFree(fontJobs[i].filepath);
+                    }
+                    return 0;
                 }
-                return 0;
             }
 
             inFontSelector = 0;
@@ -1319,37 +778,41 @@ static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Array* textRe
             if (!AssertDefaultSelectorGrammar(tokens, i)) return 0;
             inDefaultSelector = 1;
         }
-        else if (NU_Is_Property_Identifier_Token(token) && inDefaultSelector) {
+        else if (NU_Is_Property_Identifier_Token(token)) {
 
             if (!AssertPropertyIdentifierGrammar(tokens, i)) return 0;
 
-            // Use binary search to find the corresponding property text
-            StyleTextRef* textRef = BinarySearchTextRef(textRefs, i+2);
+            if (inDefaultSelector) {
 
-            // Variable property
-            enum NU_Style_Token secondNextToken = TokenArray_Get(tokens, i+2);
-            if (secondNextToken == STYLE_VARIABLE_PROPERTY_VALUE) {
+                // Use binary search to find the corresponding property text
+                StyleTextRef* textRef = BinarySearchTextRef(textRefs, i+2);
 
-                char* variableName = &src[textRef->src_index];
-                u16* variableIndex = LinearStringmap_Get(variableMap, variableName);
+                // Variable property
+                enum NU_Style_Token secondNextToken = TokenArray_Get(tokens, i+2);
+                if (secondNextToken == STYLE_VARIABLE_NAME) {
 
-                // Error! variable not found
-                if (!variableIndex) {
-                    char errMessage[128];
-                    snprintf(errMessage, sizeof(errMessage), "<CSS Error> Variable \"%s\" is undefined", variableName);
-                    ErrorSystem_AddError(&GUI.errorSystem, errMessage);
-                    return 0;
+                    char* variableName = &src[textRef->src_index];
+                    void* found = LinearStringmap_Get(variableMap, variableName);
+
+                    // Error! property value not assigned
+                    if (!found) {
+                        char errMessage[128];
+                        snprintf(errMessage, sizeof(errMessage), "<CSS Error> Variable \"%s\" is undefined", variableName);
+                        ErrorSystem_AddError(&GUI.errorSystem, errMessage);
+                        return 0;
+                    }
+
+                    // Make text ref point to variable's assignment
+                    StyleTextRef* variableTextRef = (StyleTextRef*)found;
+                    textRef = variableTextRef;
                 }
 
-                StylesheetVariable variable = *(StylesheetVariable*) Array_Get(&ss->variables, *variableIndex);
-                Stylesheet_Parse_Variable_Property(ss, token, &ss->defaultStyleItem, variable, imageResourceLoader);
+                // If text ref -> parse property
+                if (textRef) {
+                    char* text = &src[textRef->src_index];
+                    Stylesheet_Parse_Property(ss, token, &ss->defaultStyleItem, text, textRef->char_count, imageResourceLoader);
+                }
             }
-            // If text ref -> parse property
-            else if (textRef) {
-                char* text = &src[textRef->src_index];
-                Stylesheet_Parse_Property(ss, token, &ss->defaultStyleItem, text, textRef->char_count, imageResourceLoader);
-            }
-
             i += 3; continue;
         }
         else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
@@ -1580,6 +1043,11 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
     item.propertyFlags = 0;
     item.fontId = 0;
 
+    // -----------------------------------
+    // --- Working Screen Query Object ---
+    // -----------------------------------
+    StylesheetScreenQueryObject screenQueryObj;
+
     // -------------
     // --- Parse ---
     // -------------
@@ -1627,14 +1095,13 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
         }
         else if (token == STYLE_SCREEN_SELECTOR) {
             // Grammar already checked
-            textRefIndex += 1; // skip screen width value text e.g. "1080"
             ctx = 7;
             i += 4;
             continue;
         }
         else if (token == STYLE_VARIABLE_NAME) {
             // Grammar already checked
-            textRefIndex += 2; // skip name and value text e.g. "--var" "200"
+            textRefIndex += 2;
             i += 3;
             continue;
         }
@@ -1965,52 +1432,50 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
                 succeeded = 0; break;
             }
         }
-
         else if (NU_Is_Property_Identifier_Token(token))
         {
             // Property Identifier Assertion
-            if (!AssertPropertyIdentifierGrammar(tokens, i)) return 0;
+            if (!AssertPropertyIdentifierGrammar(tokens, i)) { succeeded = 0; break; }
 
-            // Get property / variable text ref
+            // Get property text ref
             textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
-            char* text = &src[textRef->src_index];
 
             // Variable property
             enum NU_Style_Token secondNextToken = TokenArray_Get(tokens, i+2);
-            if (secondNextToken == STYLE_VARIABLE_PROPERTY_VALUE && (ctx == 0 || ctx == 3 || ctx == 4 || ctx == 5)) {
+            if (secondNextToken == STYLE_VARIABLE_NAME) {
 
-                const char* variableName = text;
-                u16* varIndex = LinearStringmap_Get(variableMap, variableName);
+                const char* variableName = &src[textRef->src_index];
+                void* found = LinearStringmap_Get(variableMap, variableName);
 
                 // Error! property value not assigned
-                if (!varIndex) {
+                if (!found) {
                     char errMessage[128];
                     snprintf(errMessage, sizeof(errMessage), "<CSS Error> Variable \"%s\" is undefined", variableName);
                     ErrorSystem_AddError(&GUI.errorSystem, errMessage);
                     return 0;
                 }
 
-                StylesheetVariable variable = *(StylesheetVariable*) Array_Get(&ss->variables, *varIndex);
-                Stylesheet_Parse_Variable_Property(ss, token, &item, variable, imageResourceLoader);
+                // Make text ref point to variable's assignment
+                textRef = (StyleTextRef*)found;
             }
-            // Hardcoded property
-            else {
-                switch (ctx) {
-                    case 0:
-                        Stylesheet_Parse_Property(ss, token, &item, text, textRef->char_count, imageResourceLoader);
-                        break;
-                    case 3:
-                        Stylesheet_Parse_Scrollbar_Property(ss, token, text);
-                        break;
-                    case 4:
-                        Stylesheet_Parse_Scroll_Thumb_Property(ss, token, text, textRef->char_count);
-                        break;
-                    case 5:
-                        Stylesheet_Parse_Scroll_Track_Property(ss, token, text, textRef->char_count);
-                        break;
-                    default:
-                        break;
-                }
+
+            char* text = &src[textRef->src_index];
+
+            switch (ctx) {
+                case 0:
+                    Stylesheet_Parse_Property(ss, token, &item, text, textRef->char_count, imageResourceLoader);
+                    break;
+                case 3:
+                    Stylesheet_Parse_Scrollbar_Property(ss, token, text);
+                    break;
+                case 4:
+                    Stylesheet_Parse_Scroll_Thumb_Property(ss, token, text, textRef->char_count);
+                    break;
+                case 5:
+                    Stylesheet_Parse_Scroll_Track_Property(ss, token, text, textRef->char_count);
+                    break;
+                default:
+                    break;
             }
 
             i += 3;

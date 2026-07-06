@@ -150,13 +150,22 @@ void AssignRootWindow(WindowManager* winManager, NodeP* rootNode)
 
 void GetLocalMouseCoords(WindowManager* winManager, float* outX, float* outY)
 {
-    float globalX, globalY;
-    int windowX, windowY;
-    SDL_GetGlobalMouseState(&globalX, &globalY);
     SDL_Window* hoveredWindow = GetSDL_Window(winManager, winManager->hoveredWindowNode->windowID);
-    SDL_GetWindowPosition(hoveredWindow, &windowX, &windowY);
-    *outX = globalX - windowX;
-    *outY = globalY - windowY;
+
+    // Compute the render scale
+    int winPtsW, winPtsH;
+    int winPxW, winPxH;
+    SDL_GetWindowSize(hoveredWindow, &winPtsW, &winPtsH);
+    SDL_GetWindowSizeInPixels(hoveredWindow, &winPxW, &winPxH);
+    float renderScale = (float)winPxW / (float)winPtsW;
+
+    // Compute the result
+    float globalPtsX, globalPtsY;
+    int windowPtsX, windowPtsY;
+    SDL_GetGlobalMouseState(&globalPtsX, &globalPtsY);
+    SDL_GetWindowPosition(hoveredWindow, &windowPtsX, &windowPtsY);
+    *outX = (globalPtsX - windowPtsX) * renderScale;
+    *outY = (globalPtsY - windowPtsY) * renderScale;
 }
 
 void WindowManager_SetHoveredWindow(WindowManager* winManager, SDL_Window* window)

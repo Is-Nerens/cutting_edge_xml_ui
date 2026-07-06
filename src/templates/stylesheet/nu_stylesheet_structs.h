@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nu_stylesheet_tokens.h"
 typedef struct Stylesheet_Tag_Pseudo_Pair
 {
     int tag;
@@ -38,7 +39,60 @@ typedef struct Stylesheet_Item
     u8 inputType;
 } Stylesheet_Item;
 
-typedef struct Stylesheet_Scrollbar_Style {
+typedef enum StylesheetVariableDtype
+{
+    STYLESHEET_VARIABLE_DTYPE_RGB,
+    STYLESHEET_VARIABLE_DTYPE_NUMBER,
+    STYLESHEET_VARIABLE_DTYPE_TOP,
+    STYLESHEET_VARIABLE_DTYPE_BOTTOM,
+    STYLESHEET_VARIABLE_DTYPE_LEFT,
+    STYLESHEET_VARIABLE_DTYPE_RIGHT,
+    STYLESHEET_VARIABLE_DTYPE_CENTER,
+    STYLESHEET_VARIABLE_DTYPE_VERTICAL,
+    STYLESHEET_VARIABLE_DTYPE_HORIZONTAL,
+    STYLESHEET_VARIABLE_DTYPE_BOTH,
+    STYLESHEET_VARIABLE_DTYPE_SCROLL,
+    STYLESHEET_VARIABLE_DTYPE_TRUE,
+    STYLESHEET_VARIABLE_DTYPE_FALSE,
+    STYLESHEET_VARIABLE_DTYPE_ABSOLUTE,
+    STYLESHEET_VARIABLE_DTYPE_RELATIVE,
+    STYLESHEET_VARIABLE_DTYPE_NONE,
+    STYLESHEET_VARIABLE_DTYPE_INPUT_NUMBER,
+    STYLESHEET_VARIABLE_DTYPE_UNKNOWN,
+} StylesheetVariableDtype;
+
+typedef struct StylesheetVariable
+{
+    enum StylesheetVariableDtype type;
+    enum StylesheetVariableDtype type_DEFAULT;
+    int value_DEFAULT;
+    int value;
+} StylesheetVariable;
+
+typedef struct StylesheetVariableBinding
+{
+    u16 variableIndex;
+    u16 itemIndex;
+    u16 offset; // offset in bytes into the corresponding Stylesheet_Item
+} StylesheetVariableBinding;
+
+typedef struct StylesheetVariableOverride
+{
+    enum StylesheetVariableDtype type_OVERRIDE;
+    int value_OVERRIDE;
+    u16 variableIndex;
+} StylesheetVariableOverride;
+
+typedef struct StylesheetScreenQuery
+{
+    int overrideArrayPartitionStart;
+    int overrideArrayPartitionCount;
+    enum NU_Style_Token comparator;
+    int screenWidth;
+} StylesheetScreenQuery;
+
+typedef struct Stylesheet_Scrollbar_Style
+{
     // Bar
     u8 width;
     u8 height;
@@ -61,12 +115,16 @@ typedef struct Stylesheet
 {
     Array items;
     Array pseudoItems;
+    Array variables;
+    Array variableOverrides;
+    Array variableBindings;
+    Array screenQueries;
     LinearStringset class_string_set;
     LinearStringset id_string_set;
     Hashmap class_item_hashmap;
     Hashmap id_item_hashmap;
     Hashmap tag_item_hashmap;
-    Hashmap tag_pseudo_item_hashmap; 
+    Hashmap tag_pseudo_item_hashmap;
     Hashmap class_pseudo_item_hashmap;
     Hashmap id_pseudo_item_hashmap;
     LinearStringmap fontNameIndexMap;
@@ -75,9 +133,9 @@ typedef struct Stylesheet
     Stylesheet_Scrollbar_Style scrollbarStyle;
 } Stylesheet;
 
-struct Style_Text_Ref
+typedef struct StyleTextRef
 {
     u32 NU_Token_index;
     u32 src_index;
-    u8 char_count; 
-};
+    u8 char_count;
+} StyleTextRef;

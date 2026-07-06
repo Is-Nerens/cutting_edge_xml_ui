@@ -4,6 +4,18 @@ struct RGB {
     u8 r, g, b;
 };
 
+int PackRGB(struct RGB rgb) {
+    return ((int)rgb.r << 16) | ((int)rgb.g << 8) | ((int)rgb.b);
+}
+
+struct RGB UnpackRGB(int packed) {
+    struct RGB rgb;
+    rgb.r = (u8)((packed >> 16) & 0xFF);
+    rgb.g = (u8)((packed >> 8) & 0xFF);
+    rgb.b = (u8)(packed & 0xFF);
+    return rgb;
+}
+
 static int String_To_Float(float* result, const char* str)
 {
     *result = 0.0f;
@@ -93,7 +105,7 @@ static int String_To_u8(u8* result, const char* str)
 static int String_To_Uint16(u16* result, const char* str)
 {
     if (!result || !str) return 0;
-    u32 val = 0; 
+    u32 val = 0;
     int i = 0;
     while (str[i] != '\0') {
         char c = str[i];
@@ -140,7 +152,7 @@ static int Hex_To_Int(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
     if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
-    return -1; 
+    return -1;
 }
 
 bool Parse_Hexcode(const char* string, int char_count, struct RGB* rgb) {

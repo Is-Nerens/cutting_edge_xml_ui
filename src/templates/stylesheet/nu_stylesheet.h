@@ -14,6 +14,10 @@
 void Stylesheet_Init(Stylesheet* ss)
 {
     Array_Init(&ss->items, sizeof(Stylesheet_Item), 512);
+    Array_Init(&ss->variables, sizeof(StylesheetVariable), 128);
+    Array_Init(&ss->variableOverrides, sizeof(StylesheetVariableOverride), 128);
+    Array_Init(&ss->variableBindings, sizeof(StylesheetVariableBinding), 1024);
+    Array_Init(&ss->screenQueries, sizeof(StylesheetScreenQuery), 8);
     LinearStringset_Init(&ss->class_string_set, 1024, 128);
     LinearStringset_Init(&ss->id_string_set, 1024, 128);
     Hashmap_Init(&ss->class_item_hashmap, sizeof(char*), sizeof(u32), 128);
@@ -76,6 +80,9 @@ void Stylesheet_Init(Stylesheet* ss)
 void Stylesheet_Free(Stylesheet* ss)
 {
     Array_Free(&ss->items);
+    Array_Free(&ss->variables);
+    Array_Free(&ss->variableBindings);
+    Array_Free(&ss->screenQueries);
     LinearStringset_Free(&ss->class_string_set);
     LinearStringset_Free(&ss->id_string_set);
     Hashmap_Free(&ss->class_item_hashmap);
@@ -96,22 +103,32 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     String src = FileReadUTF8(filepath);
     if (src == NULL) return 0;
 
-    // Init token and text ref vectors and reserve
+    // Init temp data structures
     TokenArray tokens = TokenArray_Create(8000);
-    struct Array textRefs; Array_Init(&textRefs, sizeof(struct Style_Text_Ref), 2000);
+    Array textRefs; Array_Init(&textRefs, sizeof(StyleTextRef), 2000);
+    LinearStringmap variableMap; LinearStringmap_Init(&variableMap, sizeof(u16), 128, 4096);
 
-    // Tokenise and generate stylesheet
+    // Tokenise
+    printf("tokenising css\n");
+    timer_start();
     NU_Style_Tokenise(src, &tokens, &textRefs);
-    if (!Stylesheet_Parse(StringCstr(src), &tokens, &textRefs, stylesheet, imageResourceLoader)) {
+    timer_stop();
+
+    // Generate stylesheet
+    printf("generating css\n");
+    timer_start();
+    if (!Stylesheet_Parse(StringCstr(src), &tokens, &textRefs, &variableMap, stylesheet, imageResourceLoader)) {
         TokenArray_Free(&tokens);
         Array_Free(&textRefs);
         StringFree(src);
-        printf("CSS parsing failed!"); return 0;
+        return 0;
     }
+    timer_stop();
 
     // Free memory
     TokenArray_Free(&tokens);
     Array_Free(&textRefs);
+    LinearStringmap_Free(&variableMap);
     StringFree(src);
     return 1; // Success
 }

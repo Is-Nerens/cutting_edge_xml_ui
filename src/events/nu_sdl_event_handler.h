@@ -1,7 +1,7 @@
 #pragma once
 #include <events/nu_events.h>
 
-bool EventWatcher(void* data, SDL_Event* event) 
+bool EventWatcher(void* data, SDL_Event* event)
 {
     // ------------------------------------------------------------------------------------
     // --- Window closed -> main window ? close application : destroy sub window branch ---
@@ -35,7 +35,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_KEY_DOWN) {
 
         // if in text edit mode
-        if (GUI.focused_node != NULL) 
+        if (GUI.focused_node != NULL)
         {
             NodeP* inputNode = GUI.focused_node;
             NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, inputNode->fontId);
@@ -63,7 +63,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             // left arrow pressed
             else if (event->key.key == SDLK_LEFT) {
-                // control = left arrow 
+                // control = left arrow
                 if (mods & SDL_KMOD_CTRL && InputText_MoveCursorLeftSpan(inputText, inputNode, font)) GUI.awaiting_redraw = true;
                 // only backspace
                 else if (InputText_MoveCursorLeft(inputText, inputNode, font)) GUI.awaiting_redraw = true;
@@ -89,7 +89,7 @@ bool EventWatcher(void* data, SDL_Event* event)
                 if (InputText_IsHighlighting(inputText)) {
                     InputText_RemoveHighlightedText(inputText, inputNode, font);
                     InputText_PasteFromClipboard(inputText, inputNode, font);
-                } 
+                }
                 else {
                     InputText_PasteFromClipboard(inputText, inputNode, font);
                 }
@@ -109,8 +109,8 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         // toggle window fullscreen with f11 (on windows and linux)
-        if (event->key.key == SDLK_F11 && 
-            (stringEquals(SDL_GetPlatform(), "Windows") || stringEquals(SDL_GetPlatform(), "Linux"))) 
+        if (event->key.key == SDLK_F11 &&
+            (stringEquals(SDL_GetPlatform(), "Windows") || stringEquals(SDL_GetPlatform(), "Linux")))
         {
             bool fullscreen = (SDL_GetWindowFlags(GUI.winManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
             SDL_SetWindowFullscreen(GUI.winManager.lastClickedWindow, !fullscreen);
@@ -127,7 +127,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             SDL_SetWindowFullscreen(GUI.winManager.lastClickedWindow, !fullscreen);
             GUI.awaiting_redraw = true;
         }
-        
+
         TriggerAllOnKeyDownEvents(event->key.key, event->key.repeat);
     }
     else if (event->type == SDL_EVENT_KEY_UP) {
@@ -137,13 +137,13 @@ bool EventWatcher(void* data, SDL_Event* event)
     // --- Type text ----------------------------------------------------------------------
     // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_TEXT_INPUT) {
-        
+
         TriggerAllOnTypeEvents(event->text.text);
-        
+
         if (GUI.focused_node != NULL) {
             NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
             InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
-            
+
             int updated = 0;
             if (InputText_IsHighlighting(inputText)) {
                 InputText_RemoveHighlightedText(inputText, GUI.focused_node, font);
@@ -153,7 +153,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             else {
                 updated = InputText_Write(inputText, GUI.focused_node, font, event->text.text);
             }
-            
+
             if (updated) {
                 TriggerOnInputChangedEvent(GUI.focused_node, event->text.text);
                 NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_FOCUS);
@@ -161,22 +161,22 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             GUI.awaiting_redraw |= updated;
         }
-    }   
+    }
     // ------------------------------------------------------------------------------------
     // --- Move mouse -> redraw if mouse moves off hovered node ---------------------------
     // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_MOTION)
-    {       
+    {
         // update hovered window
         WindowManager_SetHoveredWindow(&GUI.winManager, SDL_GetWindowFromID(event->window.windowID));
-        
+
         NU_Mouse_Hover();
 
         // get local mouse coordinates
         float mouseX, mouseY; GetLocalMouseCoords(&GUI.winManager, &mouseX, &mouseY);
 
-        // if dragging scrollbar -> update node->node.scrollV 
-        if (GUI.scroll_mouse_down_node != NULL) 
+        // if dragging scrollbar -> update node->node.scrollV
+        if (GUI.scroll_mouse_down_node != NULL)
         {
             // Compute scrollV
             NodeP* node = GUI.scroll_mouse_down_node;
@@ -185,7 +185,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             float trackHeight = n->height - n->borderTop - n->borderBottom;
             float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
             float scrollContentHeight = n->contentHeight;
-            float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom; 
+            float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom;
             float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
             float thumbHeight = fmaxf(scrollViewHeight / n->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
             float scrollTravel = usableTrackHeight - thumbHeight;
@@ -233,28 +233,25 @@ bool EventWatcher(void* data, SDL_Event* event)
     {
         // Update last clicked window
         GUI.winManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
-        
+
         // If mouse hasn't moved yet the hovered window and node will not have been set -> set both of these
         if (!GUI.winManager.hoveredWindowNode) {
             WindowManager_SetHoveredWindow(&GUI.winManager, SDL_GetWindowFromID(event->button.windowID));
         }
 
         // Get mouse down coordinates
-        int win_x, win_y; 
-        SDL_GetGlobalMouseState(&GUI.mouseDownGlobalX, &GUI.mouseDownGlobalY);
-        SDL_GetWindowPosition(GetSDL_Window(&GUI.winManager, GUI.winManager.hoveredWindowNode->windowID), &win_x, &win_y);
-        float mouseX = GUI.mouseDownGlobalX - win_x;
-        float mouseY = GUI.mouseDownGlobalY - win_y;
+        float mouseX; float mouseY;
+        GetLocalMouseCoords(&GUI.winManager, &mouseX, &mouseY);
 
         // Set mouse down node
         GUI.prev_mouse_down_node = GUI.mouse_down_node;
         GUI.mouse_down_node = GUI.hovered_node;
 
         // If mouse is hovered over scroll thumb -> set scroll mouse down node
-        if (GUI.scroll_hovered_node != NULL) 
-        {    
+        if (GUI.scroll_hovered_node != NULL)
+        {
             float grabOffset;
-            if (NU_Mouse_Over_Node_V_Scrollbar(GUI.scroll_hovered_node, &GUI.stylesheet.scrollbarStyle, mouseX, mouseY, &grabOffset)) 
+            if (NU_Mouse_Over_Node_V_Scrollbar(GUI.scroll_hovered_node, &GUI.stylesheet.scrollbarStyle, mouseX, mouseY, &grabOffset))
             {
                 GUI.scroll_mouse_down_node = GUI.scroll_hovered_node;
                 GUI.v_scroll_thumb_grab_offset = grabOffset;
@@ -262,10 +259,10 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         // If there is a mouse down node
-        if (GUI.mouse_down_node != NULL) 
+        if (GUI.mouse_down_node != NULL)
         {
             TriggerOnMouseDownEvent(GUI.mouse_down_node, mouseX, mouseY, (int)event->button.button);
-        } 
+        }
 
         // Update focused node and prev focused node
         NodeP* prevFocusedNode = GUI.focused_node;
@@ -277,7 +274,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         // Place cursor on input node
-        if (GUI.focused_node != NULL) 
+        if (GUI.focused_node != NULL)
         {
             NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
             InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
@@ -325,32 +322,21 @@ bool EventWatcher(void* data, SDL_Event* event)
     {
         GUI.scroll_mouse_down_node = NULL;
 
-        SDL_GetGlobalMouseState(&GUI.mouseDownGlobalX, &GUI.mouseDownGlobalY);
+        float mouseX; float mouseY;
+        GetLocalMouseCoords(&GUI.winManager, &mouseX, &mouseY);
 
         // Trigger all mouse up events
-        if (GUI.winManager.hoveredWindowNode)
-        {
-            int win_x, win_y; 
-            SDL_GetWindowPosition(GetSDL_Window(&GUI.winManager, GUI.winManager.hoveredWindowNode->windowID), &win_x, &win_y);
-            float mouseX = GUI.mouseDownGlobalX - win_x;
-            float mouseY = GUI.mouseDownGlobalY - win_y;
+        if (GUI.winManager.hoveredWindowNode) {
             TriggerAllMouseupEvents(mouseX, mouseY, (int)event->button.button);
         }
 
         // If there is a pressed node
         if (GUI.mouse_down_node != NULL)
-        {   
+        {
             // If the mouse is hovering over pressed node
-            if (GUI.mouse_down_node == GUI.hovered_node) 
-            { 
+            if (GUI.mouse_down_node == GUI.hovered_node)
+            {
                 GUI.awaiting_redraw = true;
-
-                // Get mouse up coordinates
-                int win_x, win_y; 
-                SDL_GetGlobalMouseState(&GUI.mouseDownGlobalX, &GUI.mouseDownGlobalY);
-                SDL_GetWindowPosition(GetSDL_Window(&GUI.winManager, GUI.winManager.hoveredWindowNode->windowID), &win_x, &win_y);
-                float mouseX = GUI.mouseDownGlobalX - win_x;
-                float mouseY = GUI.mouseDownGlobalY - win_y;
 
                 // If there is a click event assigned to the pressed node
                 TriggerOnClickEvent(GUI.hovered_node, mouseX, mouseY, (int)event->button.button);
@@ -388,7 +374,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     {
         // If scrolling
         NodeP* node = GUI.scroll_hovered_node;
-        if (node != NULL) 
+        if (node != NULL)
         {
             NU_Mouse_Hover();
 

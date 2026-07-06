@@ -986,14 +986,22 @@ int NU_Internal_Load_XML(const char* filepath, ImageResourceLoader* imageResourc
     TokenArray tokens = TokenArray_Create(8000);
     struct Array textRefs; Array_Init(&textRefs, sizeof(struct Text_Ref), 2000);
 
-    // Tokenise and generate
+    // Tokenise
+    printf("tokenising xml\n");
+    timer_start();
     NU_Tokenise(src, &tokens, &textRefs);
+    timer_stop();
+
+    // Generate tree
+    printf("generating tree\n");
+    timer_start();
     if (!NU_Generate_Tree(StringCstr(src), &tokens, &textRefs, imageResourceLoader)) {
         TokenArray_Free(&tokens);
         Array_Free(&textRefs);
         StringFree(src);
         return 0;
     }
+    timer_stop();
 
     // Free memory
     TokenArray_Free(&tokens);

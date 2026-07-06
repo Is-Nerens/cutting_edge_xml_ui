@@ -6,7 +6,7 @@
 #define STYLE_TAG_SELECTOR_FIRST STYLE_WINDOW_SELECTOR
 #define STYLE_TAG_SELECTOR_LAST  STYLE_FRAME_SELECTOR
 
-#define STYLE_SPECIAL_SELECTOR_FIRST STYLE_FONT_CREATION_SELECTOR
+#define STYLE_SPECIAL_SELECTOR_FIRST STYLE_VAR_SELECTOR
 #define STYLE_SPECIAL_SELECTOR_LAST  STYLE_SCROLL_TRACK_SELECTOR
 
 #define STYLE_PSEUDO_FIRST STYLE_HOVER_PSEUDO
@@ -14,27 +14,28 @@
 
 static const char* style_keywords[] = {
     "dir", "grow",
-    "overflow-v", "overflow-h", 
-    "position", "hide", 
+    "overflow-v", "overflow-h",
+    "position", "hide",
     "ignore-mouse", "gap",
-    "width", "min-width", "max-width", 
+    "width", "min-width", "max-width",
     "height", "min-height", "max-height",
     "align-h", "align-v", "text-align-h", "text-align-v",
     "left", "right", "top", "bottom",
     "background", "border-colour", "text-colour",
     "border", "border-top", "border-bottom", "border-left", "border-right",
-    "border-radius", 
+    "border-radius",
     "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
-    "padding", "padding-top", "padding-bottom", "padding-left", "padding-right", 
-    "image-src", 
+    "padding", "padding-top", "padding-bottom", "padding-left", "padding-right",
+    "image-src",
     "input-type",
     "font", "src", "size", "weight",
     "scrollbar-overlay", "thumb-min-size",
-    "window", "box", "button", 
-    "input", "canvas", "image", 
-    "table", "thead", "row", 
+    "window", "box", "button",
+    "input", "canvas", "image",
+    "table", "thead", "row",
     "frame",
-    "@font", "@default", "@scrollbar", "@scrollbar-thumb", "@scrollbar-track",
+    "@var", "@font", "@default", "@screen",
+    "@scrollbar", "@scrollbar-thumb", "@scrollbar-track",
     "hover", "press", "focus",
 };
 
@@ -103,8 +104,10 @@ enum NU_Style_Token
     STYLE_FRAME_SELECTOR,
 
     // --- Special selectors ---
+    STYLE_VAR_SELECTOR,
     STYLE_FONT_CREATION_SELECTOR,
     STYLE_DEFAULT_SELECTOR,
+    STYLE_SCREEN_SELECTOR,
     STYLE_SCROLLBAR_SELECTOR,
     STYLE_SCROLL_THUMB_SELECTOR,
     STYLE_SCROLL_TRACK_SELECTOR,
@@ -122,8 +125,14 @@ enum NU_Style_Token
     STYLE_SELECTOR_COMMA,
     STYLE_SELECTOR_OPEN_BRACE,
     STYLE_SELECTOR_CLOSE_BRACE,
+    STYLE_GREATER,
+    STYLE_LESS,
+    STYLE_GREATER_EQUAL,
+    STYLE_LESS_EQUAL,
     STYLE_PROPERTY_ASSIGNMENT,
     STYLE_PROPERTY_VALUE,
+    STYLE_VARIABLE_NAME,
+    STYLE_VARIABLE_PROPERTY_VALUE,
     STYLE_FONT_CREATION_PROPERTY_VALUE,
     STYLE_FONT_NAME,
 
@@ -136,7 +145,7 @@ void PrintStyleTokenLine(enum NU_Style_Token token)
     switch (token)
     {
         // --- Properties ---
-        case STYLE_LAYOUT_DIRECTION_PROPERTY:     name = "STYLE_LAYOUT_DIRECTION_PROPERTY"; break;
+        case STYLE_LAYOUT_DIRECTION_PROPERTY:      name = "STYLE_LAYOUT_DIRECTION_PROPERTY"; break;
         case STYLE_GROW_PROPERTY:                  name = "STYLE_GROW_PROPERTY"; break;
         case STYLE_OVERFLOW_V_PROPERTY:            name = "STYLE_OVERFLOW_V_PROPERTY"; break;
         case STYLE_OVERFLOW_H_PROPERTY:            name = "STYLE_OVERFLOW_H_PROPERTY"; break;
@@ -195,6 +204,8 @@ void PrintStyleTokenLine(enum NU_Style_Token token)
         case STYLE_ROW_SELECTOR:    name = "STYLE_ROW_SELECTOR"; break;
 
         // --- Special selectors ---
+        case STYLE_VAR_SELECTOR:           name = "STYLE_VAR_SELECTOR"; break;
+        case STYLE_SCREEN_SELECTOR:        name = "STYLE_SCREEN_SELECTOR"; break;
         case STYLE_FONT_CREATION_SELECTOR: name = "STYLE_FONT_CREATION_SELECTOR"; break;
         case STYLE_DEFAULT_SELECTOR:       name = "STYLE_DEFAULT_SELECTOR"; break;
 
@@ -212,6 +223,7 @@ void PrintStyleTokenLine(enum NU_Style_Token token)
         case STYLE_SELECTOR_CLOSE_BRACE:      name = "STYLE_SELECTOR_CLOSE_BRACE"; break;
         case STYLE_PROPERTY_ASSIGNMENT:       name = "STYLE_PROPERTY_ASSIGNMENT"; break;
         case STYLE_PROPERTY_VALUE:            name = "STYLE_PROPERTY_VALUE"; break;
+        case STYLE_VARIABLE_NAME:             name = "STYLE_VARIABLE_NAME"; break;
         case STYLE_FONT_CREATION_PROPERTY_VALUE:name = "STYLE_FONT_CREATION_PROPERTY_VALUE"; break;
         case STYLE_FONT_NAME:                  name = "STYLE_FONT_NAME"; break;
 
