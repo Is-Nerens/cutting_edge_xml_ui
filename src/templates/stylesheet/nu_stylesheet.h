@@ -10,6 +10,7 @@
 #include "nu_stylesheet_tokeniser.h"
 #include "nu_stylesheet_parser.h"
 #include "nu_stylesheet_apply.h"
+#include "nu_stylesheet_screen_query.h"
 
 void Stylesheet_Init(Stylesheet* ss)
 {
@@ -131,17 +132,6 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     LinearStringmap_Free(&variableMap);
     StringFree(src);
     return 1; // Success
-}
-
-int NU_Internal_Apply_Stylesheet(Stylesheet* stylesheet)
-{
-    // Traverse tree using DFS
-    BreadthFirstSearch_Reset(&GUI.bfs, GUI.tree.root);
-    NodeP* node;
-    while (BreadthFirstSearch_Next(&GUI.bfs, &node)) {
-        NU_Apply_Stylesheet_To_Node(node, stylesheet);
-    }
-    return 1; // success
 }
 
 static inline NU_Font* Stylesheet_Get_Font(Stylesheet* ss, u8 fontID) {

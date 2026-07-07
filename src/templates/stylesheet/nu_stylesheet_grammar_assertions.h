@@ -88,7 +88,7 @@ static int AssertScrollSelectorGrammar(TokenArray* tokens, int i)
 static int AssertScreenSelectorGrammar(TokenArray* tokens, int i)
 {
     // ENFORCE RULE: NEXT TOKEN MUST BE A COMPARISON OPERATOR
-    // ENFORCE RULE: FOLLOWING TOKEN MUST BE A PROPERTY_VALUE
+    // ENFORCE RULE: FOLLOWING TOKEN MUST BE A STYLE_SCREEN_QUERY_WIDTH
     // ENFORCE RULE: FOLLOWING TOKEN MUST BE A SELECTOR OPEN BRACE
     if (i < tokens->size - 2)
     {
@@ -99,7 +99,7 @@ static int AssertScreenSelectorGrammar(TokenArray* tokens, int i)
             next_token == STYLE_LESS ||
             next_token == STYLE_GREATER_EQUAL ||
             next_token == STYLE_LESS_EQUAL) &&
-            following_token == STYLE_PROPERTY_VALUE && third_token == STYLE_SELECTOR_OPEN_BRACE) return 1;
+            following_token == STYLE_SCREEN_QUERY_WIDTH && third_token == STYLE_SELECTOR_OPEN_BRACE) return 1;
     }
     ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected [camparator (>, <, >=, <=), screen width (int), open brace '{'}]  ','");
     return 0;

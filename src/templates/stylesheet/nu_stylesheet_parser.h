@@ -3,9 +3,7 @@
 #include "../nu_token_array.h"
 #include "nu_stylesheet_structs.h"
 #include "nu_stylesheet_tokens.h"
-#include <stdio.h>
 
-// You might not like it, but this is what *peak performance looks like
 void Stylesheet_Overwrite_Style_Item(Stylesheet_Item* item, Stylesheet_Item* overwriter)
 {
     item->propertyFlags |= overwriter->propertyFlags;
@@ -65,14 +63,14 @@ void Stylesheet_Overwrite_Style_Item(Stylesheet_Item* item, Stylesheet_Item* ove
     item->borderRadiusBr = item->borderRadiusBr * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BR) + overwriter->borderRadiusBr * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BR);
 
     // Overwrite padding (branchless)
-    item->padTop = item->padTop       * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_TOP)    + overwriter->padTop    * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_TOP);
+    item->padTop    = item->padTop    * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_TOP)    + overwriter->padTop    * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_TOP);
     item->padBottom = item->padBottom * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_BOTTOM) + overwriter->padBottom * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_BOTTOM);
-    item->padLeft = item->padLeft     * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_LEFT)   + overwriter->padLeft   * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_LEFT);
-    item->padRight = item->padRight   * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_RIGHT)  + overwriter->padRight  * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_RIGHT);
+    item->padLeft   = item->padLeft   * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_LEFT)   + overwriter->padLeft   * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_LEFT);
+    item->padRight  = item->padRight  * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_RIGHT)  + overwriter->padRight  * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_RIGHT);
 
     // Overwrite image and input type (branchless)
     item->imageHandle = item->imageHandle * !(overwriter->propertyFlags & PROPERTY_FLAG_IMAGE)      + overwriter->imageHandle * !!(overwriter->propertyFlags & PROPERTY_FLAG_IMAGE);
-    item->inputType     = item->inputType * !(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE) + overwriter->inputType   * !!(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE);
+    item->inputType   = item->inputType   * !(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE) + overwriter->inputType   * !!(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE);
 
     // Overwrite font Id
     item->fontId = overwriter->fontId;
@@ -720,6 +718,7 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
                 item->backgroundR = rgb.r;
                 item->backgroundG = rgb.g;
                 item->backgroundB = rgb.b;
+                item->propertyFlags |= PROPERTY_FLAG_BACKGROUND;
             }
             else if (variable.type == STYLESHEET_VARIABLE_DTYPE_NONE) {
                 item->propertyFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
@@ -888,7 +887,7 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
             break;
         }
 
-        case STYLE_INPUT_TYPE_PROPERTY: // the else case should probably
+        case STYLE_INPUT_TYPE_PROPERTY:
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_INPUT_NUMBER) {
                 item->propertyFlags |= PROPERTY_FLAG_INPUT_TYPE;
                 item->inputType = 1;
@@ -903,14 +902,14 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
     }
 }
 
-StyleTextRef* BinarySearchTextRef(Array* textRefs, int targetTokenIndex) {
+StyleTextRef* BinarySearchTextRef(Array* textRefs, int targetTokenIndex)
+{
     int left = 0;
     int right = textRefs->size - 1;
-
-    while (left <= right) {
+    while (left <= right)
+    {
         int mid = left + (right - left) / 2;
         StyleTextRef* textRef = (StyleTextRef*)Array_Get(textRefs, mid);
-
         if (textRef->NU_Token_index == targetTokenIndex) {
             return textRef;  // found
         } else if (textRef->NU_Token_index < targetTokenIndex) {
@@ -919,18 +918,19 @@ StyleTextRef* BinarySearchTextRef(Array* textRefs, int targetTokenIndex) {
             right = mid - 1;
         }
     }
-
-    return NULL;  // not found
+    return NULL;  // not found (does not happen)
 }
 
-typedef struct FontLoadJob {
+typedef struct FontLoadJob
+{
     NU_Font* font;
     int fontSize;
     int fontWeight;
     String filepath;
 } FontLoadJob;
 
-typedef struct FontLoaderJobBatch{
+typedef struct FontLoaderJobBatch
+{
     FontLoadJob* jobs;
     int start;
     int end;
@@ -1021,28 +1021,27 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
     {
         const enum NU_Style_Token token = TokenArray_Get(tokens, i);
 
-        if (token == STYLE_VAR_SELECTOR) {
+        if (token == STYLE_VAR_SELECTOR)
+        {
             if (!AssertVariableSelectorGrammar(tokens, i)) return 0;
-            inVariableSelector = 1;
+            inVariableSelector = 1; // Enter @var selector
         }
-        else if (token == STYLE_VARIABLE_NAME && inVariableSelector) {
-
+        else if (token == STYLE_VARIABLE_NAME && inVariableSelector)
+        {
             if (!AssertVariableAssignmentGrammar(tokens, i)) return 0;
-
-            const enum NU_Style_Token valToken = TokenArray_Get(tokens, i+2);
 
             // Use binary search to find the desired text refs
             StyleTextRef* varNameTextRef = BinarySearchTextRef(textRefs, i);
             StyleTextRef* valTextRef = BinarySearchTextRef(textRefs, i+2);
 
             // If text ref -> parse variable
-            if (varNameTextRef && valTextRef) {
-
-                // Get variable name
+            if (varNameTextRef && valTextRef)
+            {
+                // Get variable name and value strings
                 char* varName = &src[varNameTextRef->src_index];
                 char* valText = &src[valTextRef->src_index];
 
-                // Try parse variable, store as packed int and infer type
+                // Try to parse variable init value (store bytes as an int and infer type)
                 StylesheetVariable newVar;
                 newVar.type = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
                 newVar.value = 0;
@@ -1050,15 +1049,15 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
                 newVar.value_DEFAULT = newVar.value;
                 newVar.type_DEFAULT = newVar.type;
 
-                // Overwrite variable's existing value
+                // Variable exists -> overwrite value
                 u16* existingVarIndex = LinearStringmap_Get(variableMap, varName);
                 if (existingVarIndex) {
                     StylesheetVariable* variable = Array_Get(&ss->variables, *existingVarIndex);
                     *variable = newVar;
                 }
-                // Variable's first declaration
+                // Variable does not exist -> create it
                 else {
-                    // Add variable value
+                    // Add variable
                     Array_Push(&ss->variables, &newVar);
                     u16 index = ss->variables.size - 1;
 
@@ -1066,13 +1065,10 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
                     LinearStringmap_Set(variableMap, varName, &index);
                 }
             }
-
-            i += 3; continue;
+            i += 3; continue; // ^
         }
-        else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
-            inVariableSelector = 0;
-        }
-        i += 1;
+        else if (token == STYLE_SELECTOR_CLOSE_BRACE) inVariableSelector = 0; // Exit @var selector
+        i += 1; // ^
     }
 
     return 1;
@@ -1080,11 +1076,9 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
 
 static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Stylesheet* ss, Array* textRefs, LinearStringmap* variableMap)
 {
+    StylesheetScreenQuery* screenQuery = NULL;
     int inScreenQuerySelector = 0;
     int i = 0;
-
-    StylesheetScreenQuery* screenQuery = NULL;
-
 
     while(i < tokens->size)
     {
@@ -1117,7 +1111,7 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
             }
 
             inScreenQuerySelector = 1;
-            i += 4;
+            i += 4; continue;
         }
         else if (token == STYLE_VARIABLE_NAME && inScreenQuerySelector) {
 
@@ -1157,10 +1151,9 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
                     return 0;
                 }
             }
+            i += 3; continue; // ^
         }
-        else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
-            inScreenQuerySelector = 0;
-        }
+        else if (token == STYLE_SELECTOR_CLOSE_BRACE) inScreenQuerySelector = 0; // Exit @screen selector
         i += 1;
     }
 
@@ -1169,63 +1162,58 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
 
 static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens, Array* textRefs)
 {
-    // State
     int inFontSelector = 0;
     int fontSize = 18;
     int fontWeight = 400;
     char* fontName = NULL;
     char* fontSrc = NULL;
-    FontLoadJob fontJobs[64]; int fontJobCount = 0;
+    FontLoadJob fontJobs[128]; int fontJobCount = 0;
     int i = 0;
 
     while(i < tokens->size)
     {
         const enum NU_Style_Token token = TokenArray_Get(tokens, i);
 
-        if (token == STYLE_FONT_CREATION_SELECTOR) {
-
+        if (token == STYLE_FONT_CREATION_SELECTOR)
+        {
             if (!AssertFontCreationSelectorGrammar(tokens, i)) return 0;
 
             StyleTextRef* textRef = BinarySearchTextRef(textRefs, i+1);
             if (textRef) fontName = &src[textRef->src_index];
-            inFontSelector = 1;
-            i += 3; continue;
+            inFontSelector = 1; // Enter @font selector
+            i += 3; continue; // ^
         }
-
-        else if (NU_Is_Property_Identifier_Token(token) && inFontSelector) {
-
+        else if (NU_Is_Property_Identifier_Token(token) && inFontSelector)
+        {
             if (!AssertPropertyIdentifierGrammar(tokens, i)) return 0;
 
             // Use binary search to find the corresponding property text
             StyleTextRef* textRef = BinarySearchTextRef(textRefs, i + 2);
 
-            if (textRef) {
-                // Get null terminated property text
-                char* text = &src[textRef->src_index];
+            if (textRef)
+            {
+                char* propertyText = &src[textRef->src_index];
 
                 switch (token)
                 {
-                    case STYLE_FONT_SRC:
-                        fontSrc = text;
+                    case STYLE_FONT_SRC: {
+                        fontSrc = propertyText;
                         break;
-
+                    }
                     case STYLE_FONT_SIZE: {
                         int size = 0;
-                        if (String_To_Int(&size, text)) fontSize = size;
+                        if (String_To_Int(&size, propertyText)) fontSize = size;
                         break;
                     }
-
                     case STYLE_FONT_WEIGHT: {
                         int weight = 0;
-                        if (String_To_Int(&weight, text)) fontWeight = weight;
+                        if (String_To_Int(&weight, propertyText)) fontWeight = weight;
                         break;
                     }
-
                     default:
                         break;
                 }
             }
-
             i += 3; continue;
         }
         else if (token == STYLE_SELECTOR_CLOSE_BRACE && inFontSelector) {
@@ -1234,7 +1222,7 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
 
                 // Create a new font
                 void* found_font = LinearStringmap_Get(&ss->fontNameIndexMap, fontName);
-                if (found_font == NULL && fontJobCount < 64)
+                if (found_font == NULL && fontJobCount < 128)
                 {
                     // Create uninitialised font
                     NU_Font font;
@@ -1258,7 +1246,7 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
                 return 0;
             }
 
-            inFontSelector = 0;
+            inFontSelector = 0; // Exit @font selector
         }
         i += 1;
     }
@@ -1267,8 +1255,8 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
     int threadCount = SDL_GetNumLogicalCPUCores();
     if (threadCount <= 0) threadCount = 1;
     if (threadCount > fontJobCount) threadCount = fontJobCount;
-    SDL_Thread* threads[64];
-    FontLoaderJobBatch batches[64];
+    SDL_Thread* threads[128];
+    FontLoaderJobBatch batches[128];
 
     // Create job batches
     int jobsPerThread = fontJobCount / threadCount;
@@ -1315,12 +1303,13 @@ static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Array* textRe
     {
         const enum NU_Style_Token token = TokenArray_Get(tokens, i);
 
-        if (token == STYLE_DEFAULT_SELECTOR) {
-            if (!AssertDefaultSelectorGrammar(tokens, i)) return 0;
+        if (token == STYLE_DEFAULT_SELECTOR)
+        {
+            if (!AssertDefaultSelectorGrammar(tokens, i)) return 0; // Enter @default selector
             inDefaultSelector = 1;
         }
-        else if (NU_Is_Property_Identifier_Token(token) && inDefaultSelector) {
-
+        else if (NU_Is_Property_Identifier_Token(token) && inDefaultSelector)
+        {
             if (!AssertPropertyIdentifierGrammar(tokens, i)) return 0;
 
             // Use binary search to find the corresponding property text
@@ -1352,9 +1341,7 @@ static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Array* textRe
 
             i += 3; continue;
         }
-        else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
-            inDefaultSelector = 0;
-        }
+        else if (token == STYLE_SELECTOR_CLOSE_BRACE) inDefaultSelector = 0; // Exit @default selector
         i += 1;
     }
 
@@ -1541,6 +1528,18 @@ void Stylesheet_Parse_Scroll_Track_Property(Stylesheet* ss, const enum NU_Style_
     }
 }
 
+enum StylesheetParseCtx
+{
+    STYLE_PARSE_CTX_SELECTOR,
+    STYLE_PARSE_CTX_VAR_SELECTOR,
+    STYLE_PARSE_CTX_SCREEN_SELECTOR,
+    STYLE_PARSE_CTX_FONT_SELECTOR,
+    STYLE_PARSE_CTX_DEFAULT_SELECTOR,
+    STYLE_PARSE_CTX_SCROLLBAR_SELECTOR,
+    STYLE_PARSE_CTX_SCROLL_THUMB_SELECTOR,
+    STYLE_PARSE_CTX_SCROLL_TRACK_SELECTOR,
+};
+
 static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Stylesheet* ss, ImageResourceLoader* imageResourceLoader)
 {
     // Parse Variables
@@ -1562,7 +1561,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
        3 == scrollbar selector; 4 == scroll thumb selector; 5 == scroll track selector;
        6 == var selector; 7 == screen selector;
     */
-    int ctx = 0;
+    enum StylesheetParseCtx ctx = STYLE_PARSE_CTX_SELECTOR;
     u32 selectorIndexes[64];
     int selectorCount = 0;
     int succeeded = 1;
@@ -1591,44 +1590,44 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
         if (token == STYLE_FONT_CREATION_SELECTOR) {
             // Grammar already checked
             textRefIndex += 1;
-            ctx = 1;
+            ctx = STYLE_PARSE_CTX_FONT_SELECTOR;
             i += 2;
             continue;
         }
         else if (token == STYLE_DEFAULT_SELECTOR) {
             // Grammar already checked
-            ctx = 2;
+            ctx = STYLE_PARSE_CTX_DEFAULT_SELECTOR;
             i += 2;
             continue;
         }
         else if (token == STYLE_SCROLLBAR_SELECTOR) {
             if (!AssertScrollSelectorGrammar(tokens, i)) return 0;
-            ctx = 3;
+            ctx = STYLE_PARSE_CTX_SCROLLBAR_SELECTOR;
             i += 2;
             continue;
         }
         else if (token == STYLE_SCROLL_THUMB_SELECTOR) {
             if (!AssertScrollSelectorGrammar(tokens, i)) return 0;
-            ctx = 4;
+            ctx = STYLE_PARSE_CTX_SCROLL_THUMB_SELECTOR;
             i += 2;
             continue;
         }
         else if (token == STYLE_SCROLL_TRACK_SELECTOR) {
             if (!AssertScrollSelectorGrammar(tokens, i)) return 0;
-            ctx = 5;
+            ctx = STYLE_PARSE_CTX_SCROLL_TRACK_SELECTOR;
             i += 2;
             continue;
         }
         else if (token == STYLE_VAR_SELECTOR) {
             // Grammar already checked
-            ctx = 6;
+            ctx = STYLE_PARSE_CTX_VAR_SELECTOR;
             i += 2;
             continue;
         }
         else if (token == STYLE_SCREEN_SELECTOR) {
             // Grammar already checked
             textRefIndex += 1; // skip screen width value text e.g. "1080"
-            ctx = 7;
+            ctx = STYLE_PARSE_CTX_SCREEN_SELECTOR;
             i += 4;
             continue;
         }
@@ -1996,16 +1995,16 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             // Hardcoded property
             else {
                 switch (ctx) {
-                    case 0:
+                    case STYLE_PARSE_CTX_SELECTOR:
                         Stylesheet_Parse_Property(ss, token, &item, text, textRef->char_count, imageResourceLoader);
                         break;
-                    case 3:
+                    case STYLE_PARSE_CTX_SCROLLBAR_SELECTOR:
                         Stylesheet_Parse_Scrollbar_Property(ss, token, text);
                         break;
-                    case 4:
+                    case STYLE_PARSE_CTX_SCROLL_THUMB_SELECTOR:
                         Stylesheet_Parse_Scroll_Thumb_Property(ss, token, text, textRef->char_count);
                         break;
-                    case 5:
+                    case STYLE_PARSE_CTX_SCROLL_TRACK_SELECTOR:
                         Stylesheet_Parse_Scroll_Track_Property(ss, token, text, textRef->char_count);
                         break;
                     default:

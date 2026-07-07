@@ -31,7 +31,7 @@ typedef struct Stylesheet_Item
     u8 backgroundR, backgroundG, backgroundB;
     u8 borderR, borderG, borderB;
     u8 textR, textG, textB;
-    u8 fontId; // index of NU_Font in stylesheet fonts vector
+    u8 fontId;
     char horizontalAlignment;
     char verticalAlignment;
     char horizontalTextAlignment;
@@ -61,6 +61,17 @@ typedef enum StylesheetVariableDtype
     STYLESHEET_VARIABLE_DTYPE_UNKNOWN,
 } StylesheetVariableDtype;
 
+typedef union StylesheetVariableValue {
+    struct RGB rgb;
+    int _int;
+    u16 _u16;
+    u8  _u8;
+} StylesheetVariableValue;
+
+typedef struct StylesheetVariable {
+    StylesheetVariableValue value;
+} StylesheetVariable;
+
 typedef struct StylesheetVariable
 {
     enum StylesheetVariableDtype type;
@@ -73,6 +84,7 @@ typedef struct StylesheetVariableBinding
 {
     u16 variableIndex;
     u16 itemIndex;
+    u16 size;
     u16 offset; // offset in bytes into the corresponding Stylesheet_Item
 } StylesheetVariableBinding;
 
@@ -97,12 +109,14 @@ typedef struct Stylesheet_Scrollbar_Style
     u8 width;
     u8 height;
     bool overlay;
+
     // Thumb
     u8 thumbMinSize;
     u8 thumbBorderTop, thumbBorderBottom, thumbBorderLeft, thumbBorderRight;
     u8 thumbBorderRadiusTl, thumbBorderRadiusTr, thumbBorderRadiusBl, thumbBorderRadiusBr;
     u8 thumbBackgroundR, thumbBackgroundG, thumbBackgroundB;
     u8 thumbBorderR, thumbBorderG, thumbBorderB;
+
     // Track
     u8 trackPadTop, trackPadBottom, trackPadLeft, trackPadRight;
     u8 trackBorderTop, trackBorderBottom, trackBorderLeft, trackBorderRight;

@@ -9,7 +9,7 @@
 // This should be optimised (branchless)
 static void NU_Apply_Style_Item_To_Node(NodeP* node, Stylesheet_Item* item)
 {
-    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_LAYOUT_VERTICAL, LAYOUT_VERTICAL); 
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_LAYOUT_VERTICAL, LAYOUT_VERTICAL);
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_GROW, GROW_HORIZONTAL);
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_GROW, GROW_VERTICAL);
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_VERTICAL_SCROLL, OVERFLOW_VERTICAL_SCROLL);     // Overflow vertical scroll (or not)
@@ -67,23 +67,23 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, Stylesheet_Item* item)
         InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
         inputText->type = item->inputType;
     }
-    node->fontId = item->fontId; // set font 
+    node->fontId = item->fontId; // set font
 }
 
 void NU_Apply_Stylesheet_To_Node(NodeP* node, Stylesheet* ss)
-{   
+{
     // 1. Apply default style
     NU_Apply_Style_Item_To_Node(node, &ss->defaultStyleItem);
 
     // 2. Apply tag match
-    void* tag_found = Hashmap_Get(&ss->tag_item_hashmap, &node->type); 
-    if (tag_found != NULL) { 
+    void* tag_found = Hashmap_Get(&ss->tag_item_hashmap, &node->type);
+    if (tag_found != NULL) {
         Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, *(u32*)tag_found);
         NU_Apply_Style_Item_To_Node(node, item);
     }
 
     // 3. Apply class match
-    if (node->class != NULL) { 
+    if (node->class != NULL) {
         char* stored_class = LinearStringset_Get(&ss->class_string_set, node->class);
         if (stored_class != NULL) {
             void* class_found = Hashmap_Get(&ss->class_item_hashmap, &stored_class);
@@ -95,7 +95,7 @@ void NU_Apply_Stylesheet_To_Node(NodeP* node, Stylesheet* ss)
     }
 
     // 4. Apply ID match
-    if (node->id != NULL) { 
+    if (node->id != NULL) {
         char* stored_id = LinearStringset_Get(&ss->id_string_set, node->id);
         if (stored_id != NULL) {
             void* id_found = Hashmap_Get(&ss->id_item_hashmap, &stored_id);
@@ -108,7 +108,7 @@ void NU_Apply_Stylesheet_To_Node(NodeP* node, Stylesheet* ss)
 }
 
 void NU_Apply_Pseudo_Style_To_Node(NodeP* node, Stylesheet* ss, enum NU_Pseudo_Class pseudo)
-{   
+{
     if (node == NULL) return;
 
     bool appliedBase = false;
@@ -168,4 +168,15 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, Stylesheet* ss, enum NU_Pseudo_C
             }
         }
     }
+}
+
+int NU_Internal_Apply_Stylesheet(Stylesheet* stylesheet)
+{
+    // Traverse tree using DFS
+    BreadthFirstSearch_Reset(&GUI.bfs, GUI.tree.root);
+    NodeP* node;
+    while (BreadthFirstSearch_Next(&GUI.bfs, &node)) {
+        NU_Apply_Stylesheet_To_Node(node, stylesheet);
+    }
+    return 1; // success
 }

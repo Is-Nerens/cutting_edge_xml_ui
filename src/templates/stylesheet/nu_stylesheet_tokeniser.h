@@ -5,19 +5,19 @@
 
 enum CSS_Tokenise_Ctx
 {
-    CSS_TOKENISE_CTX_GLOBAL_SPACE,
-    CSS_TOKENISE_CTX_GLOBAL_COMMENT_SPACE,
-    CSS_TOKENISE_CTX_SELECTOR_SPACE,
-    CSS_TOKENISE_CTX_SELECTOR_COMMENT_SPACE,
-    CSS_TOKENISE_CTX_PROPERTY_VALUE_SPACE,
-    CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE_SPACE,
-    CSS_TOKENISE_CTX_PROPERTY_VALUE_STRING_SPACE_ESCAPE_CHAR,
-    CSS_TOKENISE_CTX_VARIABLE_NAME_DEFINE_SPACE,
-    CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME_SPACE,
-    CSS_TOKENISE_CTX_ID_SELECTOR_NAME_SPACE,
-    CSS_TOKENISE_CTX_PSEUDO_NAME_SPACE,
-    CSS_TOKENISE_CTX_FONT_CREATION_NAME_SPACE,
-    CSS_TOKENISE_CTX_SCREEN_SELECTOR_NAME_SPACE, // Eg. @screen > 2000 (after @screen and before the {)
+    CSS_TOKENISE_CTX_GLOBAL,
+    CSS_TOKENISE_CTX_GLOBAL_COMMENT,
+    CSS_TOKENISE_CTX_SELECTOR,
+    CSS_TOKENISE_CTX_SELECTOR_COMMENT,
+    CSS_TOKENISE_CTX_PROPERTY_VALUE,
+    CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE,
+    CSS_TOKENISE_CTX_PROPERTY_VALUE_STRING_ESCAPE_CHAR,
+    CSS_TOKENISE_CTX_VARIABLE_NAME_DEFINE,
+    CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME,
+    CSS_TOKENISE_CTX_ID_SELECTOR_NAME,
+    CSS_TOKENISE_CTX_PSEUDO_NAME,
+    CSS_TOKENISE_CTX_FONT_CREATION_NAME,
+    CSS_TOKENISE_CTX_SCREEN_SELECTOR_NAME, // Eg. @screen > 2000 (after @screen and before the {)
 };
 
 static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
@@ -26,7 +26,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
     ParserWord_Init(&word);
 
     // Context
-    u8 ctx = CSS_TOKENISE_CTX_GLOBAL_SPACE;
+    u8 ctx = CSS_TOKENISE_CTX_GLOBAL;
 
     // Iterate over src file
     u32 srcLen = StringLen(src);
@@ -37,50 +37,48 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
 
         // Globalspace comment begins
         int peekI = i;
-        if (ctx == CSS_TOKENISE_CTX_GLOBAL_SPACE && i < srcLen - 1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '*') {
-            i=peekI; ctx = CSS_TOKENISE_CTX_GLOBAL_COMMENT_SPACE; continue; // ^
+        if (ctx == CSS_TOKENISE_CTX_GLOBAL && i < srcLen - 1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '*') {
+            i=peekI; ctx = CSS_TOKENISE_CTX_GLOBAL_COMMENT; continue; // ^
         }
 
         // Globalspace comment ends
-        if (ctx == CSS_TOKENISE_CTX_GLOBAL_COMMENT_SPACE && i < srcLen - 1 && c == '*' && NextUTF8Codepoint(src, &peekI) == '/') {
-            i=peekI; ctx = CSS_TOKENISE_CTX_GLOBAL_SPACE; continue; // ^
+        if (ctx == CSS_TOKENISE_CTX_GLOBAL_COMMENT && i < srcLen - 1 && c == '*' && NextUTF8Codepoint(src, &peekI) == '/') {
+            i=peekI; ctx = CSS_TOKENISE_CTX_GLOBAL; continue; // ^
         }
 
         // Selectorspace comment begins
-        if (ctx == CSS_TOKENISE_CTX_SELECTOR_SPACE && i < srcLen - 1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '*') {
-            i=peekI; ctx = CSS_TOKENISE_CTX_SELECTOR_COMMENT_SPACE; continue; // ^
+        if (ctx == CSS_TOKENISE_CTX_SELECTOR && i < srcLen - 1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '*') {
+            i=peekI; ctx = CSS_TOKENISE_CTX_SELECTOR_COMMENT; continue; // ^
         }
 
         // Selectorspace comment ends
-        if (ctx == CSS_TOKENISE_CTX_SELECTOR_COMMENT_SPACE && i < srcLen - 1 && c == '*' && NextUTF8Codepoint(src, &peekI) == '/') {
-            i=peekI; ctx = CSS_TOKENISE_CTX_SELECTOR_SPACE; continue; // ^
+        if (ctx == CSS_TOKENISE_CTX_SELECTOR_COMMENT && i < srcLen - 1 && c == '*' && NextUTF8Codepoint(src, &peekI) == '/') {
+            i=peekI; ctx = CSS_TOKENISE_CTX_SELECTOR; continue; // ^
         }
-
-        // Variable name definition space
-        if (ctx == CSS_TOKENISE_CTX_SELECTOR_SPACE && i < srcLen - 1 && c == '-' && NextUTF8Codepoint(src, &peekI) == '-') {
-            ParserWord_Append(&word, '-');
-            ParserWord_Append(&word, '-');
-            i=peekI; ctx = CSS_TOKENISE_CTX_VARIABLE_NAME_DEFINE_SPACE; continue; // ^
-        }
-
 
         // In comment -> skip rest
-        if (ctx == CSS_TOKENISE_CTX_GLOBAL_COMMENT_SPACE || ctx == CSS_TOKENISE_CTX_SELECTOR_COMMENT_SPACE) {
+        if (ctx == CSS_TOKENISE_CTX_GLOBAL_COMMENT || ctx == CSS_TOKENISE_CTX_SELECTOR_COMMENT) {
             continue; // ^
         }
 
+        // Variable name definition space
+        if (ctx == CSS_TOKENISE_CTX_SELECTOR && i < srcLen - 1 && c == '-' && NextUTF8Codepoint(src, &peekI) == '-') {
+            ParserWord_Append(&word, '-'); ParserWord_Append(&word, '-');
+            i=peekI; ctx = CSS_TOKENISE_CTX_VARIABLE_NAME_DEFINE; continue; // ^
+        }
+
         // Enter class selector name space
-        if (ctx == CSS_TOKENISE_CTX_GLOBAL_SPACE && c == '.') {
-            ParserWord_Clear(&word); ctx = CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME_SPACE; continue; // ^
+        if (ctx == CSS_TOKENISE_CTX_GLOBAL && c == '.') {
+            ParserWord_Clear(&word); ctx = CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME; continue; // ^
         }
 
         // Enter id selector name space
-        if (ctx == CSS_TOKENISE_CTX_GLOBAL_SPACE && c == '#') {
-            ParserWord_Clear(&word); ctx = CSS_TOKENISE_CTX_ID_SELECTOR_NAME_SPACE; continue; // ^
+        if (ctx == CSS_TOKENISE_CTX_GLOBAL && c == '#') {
+            ParserWord_Clear(&word); ctx = CSS_TOKENISE_CTX_ID_SELECTOR_NAME; continue; // ^
         }
 
         // Property value word completed
-        if (ctx == CSS_TOKENISE_CTX_PROPERTY_VALUE_SPACE && c == ';') {
+        if (ctx == CSS_TOKENISE_CTX_PROPERTY_VALUE && c == ';') {
 
             // Add property text reference
             if (word.length > 0) {
@@ -88,90 +86,88 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
                 StringCstr(src)[ref.src_index + ref.char_count] = '\0';
                 Array_Push(textRefs, &ref);
 
-                // Determine if is variable property name or hard-coded property value
+                // Variable property value
                 if (word.length > 2 && word.buffer[0] == '-' && word.buffer[1] == '-') {
                     TokenArray_Add(tokens, STYLE_VARIABLE_PROPERTY_VALUE);
                 }
+                // Hard-coded property value
                 else {
                     TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
                 }
                 ParserWord_Clear(&word);
             }
-            ctx = CSS_TOKENISE_CTX_SELECTOR_SPACE; continue; // ^
+            ctx = CSS_TOKENISE_CTX_SELECTOR; continue; // ^
         }
 
         // Property value quotes string started
-        if (ctx == CSS_TOKENISE_CTX_PROPERTY_VALUE_SPACE && c == '"') {
-            ParserWord_Clear(&word); ctx = CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE_SPACE; continue; // ^
+        if (ctx == CSS_TOKENISE_CTX_PROPERTY_VALUE && c == '"') {
+            ParserWord_Clear(&word); ctx = CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE; continue; // ^
         }
-        if (ctx == CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE_SPACE && c =='\\') {
-            ctx = CSS_TOKENISE_CTX_PROPERTY_VALUE_STRING_SPACE_ESCAPE_CHAR; continue; // ^
+        if (ctx == CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE && c =='\\') {
+            ctx = CSS_TOKENISE_CTX_PROPERTY_VALUE_STRING_ESCAPE_CHAR; continue; // ^
         }
-        if (ctx == CSS_TOKENISE_CTX_PROPERTY_VALUE_STRING_SPACE_ESCAPE_CHAR) {
-            ctx = CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE_SPACE; continue; // ^
+        if (ctx == CSS_TOKENISE_CTX_PROPERTY_VALUE_STRING_ESCAPE_CHAR) {
+            ctx = CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE; continue; // ^
         }
         // Property value quotes string completed
-        if (ctx == CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE_SPACE && c == '"') {
+        if (ctx == CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE && c == '"') {
+
             // Add property text reference
             if (word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
                 StringCstr(src)[ref.src_index + ref.char_count] = '\0';
                 Array_Push(textRefs, &ref);
 
-                // Determine if is variable property name or hard-coded property value
+                // Variable property value
                 if (word.length > 2 && word.buffer[0] == '-' && word.buffer[1] == '-') {
                     TokenArray_Add(tokens, STYLE_VARIABLE_PROPERTY_VALUE);
                 }
+                // Hard-coded property value
                 else {
                     TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
                 }
                 ParserWord_Clear(&word);
             }
-            ctx = CSS_TOKENISE_CTX_PROPERTY_VALUE_SPACE; continue; // ^
+            ctx = CSS_TOKENISE_CTX_PROPERTY_VALUE; continue; // ^
         }
 
         // Enter selectorspace
         if (c == '{')
         {
             // Tag selector word completed
-            if (ctx == CSS_TOKENISE_CTX_GLOBAL_SPACE && word.length > 0) {
+            if (ctx == CSS_TOKENISE_CTX_GLOBAL && word.length > 0) {
                 TokenArray_Add(tokens, NU_Word_To_Tag_Selector_Token(word.buffer, word.length));
-                ParserWord_Clear(&word);
             }
 
-            // Class selector word completed
-            else if (ctx == CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME_SPACE && word.length > 0) {
-                // Add text reference
+            // Class selector word completed -> add text reference and class selector token
+            else if (ctx == CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
                 StringCstr(src)[ref.src_index + ref.char_count] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
-                ParserWord_Clear(&word);
             }
 
-            // Id selector word completed
-            else if (ctx == CSS_TOKENISE_CTX_ID_SELECTOR_NAME_SPACE && word.length > 0) {
-                // Add text reference
+            // Id selector word completed -> add text reference and id selector token
+            else if (ctx == CSS_TOKENISE_CTX_ID_SELECTOR_NAME && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
                 StringCstr(src)[ref.src_index + ref.char_count] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_ID_SELECTOR);
-                ParserWord_Clear(&word);
             }
 
-            // Font name word completed
-            else if (ctx == CSS_TOKENISE_CTX_FONT_CREATION_NAME_SPACE && word.length > 0) {
-                // Add text reference
+            // Font name word completed > add text reference and font name token
+            else if (ctx == CSS_TOKENISE_CTX_FONT_CREATION_NAME && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
                 StringCstr(src)[ref.src_index + ref.char_count] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_FONT_NAME);
-                ParserWord_Clear(&word);
             }
 
             // Add open brace token
             TokenArray_Add(tokens, STYLE_SELECTOR_OPEN_BRACE);
-            ParserWord_Clear(&word); ctx = CSS_TOKENISE_CTX_SELECTOR_SPACE; continue; // ^
+
+            // Clear word and enter selector ctx
+            ParserWord_Clear(&word); ctx = CSS_TOKENISE_CTX_SELECTOR; continue; // ^
         }
 
         // Exiting selectorspace
@@ -183,64 +179,21 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
                 ParserWord_Clear(&word);
             }
 
+            // Add close brace token and enter global ctx
             TokenArray_Add(tokens, STYLE_SELECTOR_CLOSE_BRACE);
-            ctx = CSS_TOKENISE_CTX_GLOBAL_SPACE; continue; // ^
+            ctx = CSS_TOKENISE_CTX_GLOBAL; continue; // ^
         }
 
         // Encountered separation character -> word is completed
         if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ',' || c == ':')
         {
-            // Any selector word completed
-            if (ctx == CSS_TOKENISE_CTX_GLOBAL_SPACE && word.length > 0) {
-                enum NU_Style_Token token = NU_Word_To_Any_Selector_Token(word.buffer, word.length);
-                TokenArray_Add(tokens, token);
-                ParserWord_Clear(&word);
-
-                if (token == STYLE_FONT_CREATION_SELECTOR) { // Special selector context
-                    ctx = CSS_TOKENISE_CTX_FONT_CREATION_NAME_SPACE;
-                }
-                else if (token == STYLE_SCREEN_SELECTOR) {
-                    ctx = CSS_TOKENISE_CTX_SCREEN_SELECTOR_NAME_SPACE;
-                }
-            }
-
-            // Class selector word completed
-            else if (ctx == CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME_SPACE && word.length > 0) {
-                // Add text reference
-                StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
-                Array_Push(textRefs, &ref);
-                TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
-                ctx = CSS_TOKENISE_CTX_GLOBAL_SPACE;
-            }
-
-            // Id selector word completed
-            else if (ctx == CSS_TOKENISE_CTX_ID_SELECTOR_NAME_SPACE && word.length > 0) {
-                // Add text reference
-                StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
-                Array_Push(textRefs, &ref);
-                TokenArray_Add(tokens, STYLE_ID_SELECTOR);
-                ctx = CSS_TOKENISE_CTX_GLOBAL_SPACE;
-            }
-
             // Property identifier word completed
-            else if (ctx == CSS_TOKENISE_CTX_SELECTOR_SPACE && word.length > 0) {
+            if (ctx == CSS_TOKENISE_CTX_SELECTOR && word.length > 0) {
                 TokenArray_Add(tokens, NU_Word_To_Style_Property_Token(word.buffer, word.length));
             }
 
-            // Variable name definition word completed
-            else if (ctx == CSS_TOKENISE_CTX_VARIABLE_NAME_DEFINE_SPACE && word.length > 0) {
-                StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
-                Array_Push(textRefs, &ref);
-                TokenArray_Add(tokens, STYLE_VARIABLE_NAME);
-                ctx = CSS_TOKENISE_CTX_SELECTOR_SPACE;
-            }
-
-            // Property value word completed
-            else if (ctx == CSS_TOKENISE_CTX_PROPERTY_VALUE_SPACE && word.length > 0) {
-                // Add text reference
+            // Property value word completed (most common first)
+            else if (ctx == CSS_TOKENISE_CTX_PROPERTY_VALUE && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
                 StringCstr(src)[ref.src_index + ref.char_count] = '\0';
                 Array_Push(textRefs, &ref);
@@ -252,27 +205,68 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
                 else {
                     TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
                 }
-                ctx = CSS_TOKENISE_CTX_SELECTOR_SPACE;
+                ctx = CSS_TOKENISE_CTX_SELECTOR;
+            }
+
+            // Class selector word completed
+            else if (ctx == CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME && word.length > 0) {
+                StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
+                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                Array_Push(textRefs, &ref);
+                TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
+                ctx = CSS_TOKENISE_CTX_GLOBAL;
+            }
+
+            // Id selector word completed
+            else if (ctx == CSS_TOKENISE_CTX_ID_SELECTOR_NAME && word.length > 0) {
+                StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
+                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                Array_Push(textRefs, &ref);
+                TokenArray_Add(tokens, STYLE_ID_SELECTOR);
+                ctx = CSS_TOKENISE_CTX_GLOBAL;
             }
 
             // Pseudo class word completed
-            else if (ctx == CSS_TOKENISE_CTX_PSEUDO_NAME_SPACE && word.length > 0) {
+            else if (ctx == CSS_TOKENISE_CTX_PSEUDO_NAME && word.length > 0) {
                 TokenArray_Add(tokens, NU_Word_To_Pseudo_Token(word.buffer, word.length));
-                ctx = CSS_TOKENISE_CTX_GLOBAL_SPACE;
+                ctx = CSS_TOKENISE_CTX_GLOBAL;
+            }
+
+            // Any selector word completed
+            else if (ctx == CSS_TOKENISE_CTX_GLOBAL && word.length > 0) {
+                enum NU_Style_Token token = NU_Word_To_Any_Selector_Token(word.buffer, word.length);
+                TokenArray_Add(tokens, token);
+                ParserWord_Clear(&word);
+
+                if (token == STYLE_FONT_CREATION_SELECTOR) { // Special selector context
+                    ctx = CSS_TOKENISE_CTX_FONT_CREATION_NAME;
+                }
+                else if (token == STYLE_SCREEN_SELECTOR) {
+                    ctx = CSS_TOKENISE_CTX_SCREEN_SELECTOR_NAME;
+                }
+            }
+
+            // Variable name definition word completed
+            else if (ctx == CSS_TOKENISE_CTX_VARIABLE_NAME_DEFINE && word.length > 0) {
+                StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
+                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                Array_Push(textRefs, &ref);
+                TokenArray_Add(tokens, STYLE_VARIABLE_NAME);
+                ctx = CSS_TOKENISE_CTX_SELECTOR;
             }
 
             // Special font name word completed
-            else if (ctx == CSS_TOKENISE_CTX_FONT_CREATION_NAME_SPACE && word.length > 0) {
-
-                // Add text reference
+            else if (ctx == CSS_TOKENISE_CTX_FONT_CREATION_NAME && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
                 StringCstr(src)[ref.src_index + ref.char_count] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_FONT_NAME);
             }
 
-            else if (ctx == CSS_TOKENISE_CTX_SCREEN_SELECTOR_NAME_SPACE && word.length > 0) {
+            // Screen query name space
+            else if (ctx == CSS_TOKENISE_CTX_SCREEN_SELECTOR_NAME && word.length > 0) {
 
+                // Check for comparators
                 if (word.length == 1 && word.buffer[0] == '>') {
                     TokenArray_Add(tokens, STYLE_GREATER);
                 }
@@ -285,29 +279,31 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
                 else if (word.length == 2 && word.buffer[0] == '<'  && word.buffer[1] == '=') {
                     TokenArray_Add(tokens, STYLE_LESS_EQUAL);
                 }
+                // Tag as screen width value
                 else {
-                    // Add text reference
                     StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
                     StringCstr(src)[ref.src_index + ref.char_count] = '\0';
                     Array_Push(textRefs, &ref);
-                    TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
+                    TokenArray_Add(tokens, STYLE_SCREEN_QUERY_WIDTH);
                 }
             }
 
+            // Selector comma
             if (c == ',') {
                 TokenArray_Add(tokens, STYLE_SELECTOR_COMMA);
             }
 
+            // Colon
             if (c == ':') {
                 // Style property assignment token
-                if (ctx == CSS_TOKENISE_CTX_SELECTOR_SPACE) {
+                if (ctx == CSS_TOKENISE_CTX_SELECTOR) {
                     TokenArray_Add(tokens, STYLE_PROPERTY_ASSIGNMENT);
-                    ctx = CSS_TOKENISE_CTX_PROPERTY_VALUE_SPACE;
+                    ctx = CSS_TOKENISE_CTX_PROPERTY_VALUE;
                 }
                 // Pseudo class assignment token
-                else if (ctx == CSS_TOKENISE_CTX_GLOBAL_SPACE || ctx == CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME_SPACE || ctx == CSS_TOKENISE_CTX_ID_SELECTOR_NAME_SPACE ) {
+                else if (ctx == CSS_TOKENISE_CTX_GLOBAL || ctx == CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME || ctx == CSS_TOKENISE_CTX_ID_SELECTOR_NAME ) {
                     TokenArray_Add(tokens, STYLE_PSEUDO_COLON);
-                    ctx = CSS_TOKENISE_CTX_PSEUDO_NAME_SPACE;
+                    ctx = CSS_TOKENISE_CTX_PSEUDO_NAME;
                 }
             }
 
