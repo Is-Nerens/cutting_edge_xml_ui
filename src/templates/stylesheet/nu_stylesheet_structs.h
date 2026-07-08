@@ -111,7 +111,6 @@ typedef struct Stylesheet
     Hashmap itemIndexMap;
     LinearStringmap fontNameIndexMap;
     Container fonts;
-    StyleItem defaultStyleItem;
     Stylesheet_Scrollbar_Style scrollbarStyle;
 } Stylesheet;
 

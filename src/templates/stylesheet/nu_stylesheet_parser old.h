@@ -884,9 +884,6 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
             break;
 
         case STYLE_FONT_PROPERTY: {
-            if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->fontId = variable.value;
-            }
             break;
         }
 
@@ -956,7 +953,7 @@ int FontLoaderThread(void* data)
     return 0;
 }
 
-void Stylesheet_Parse_Variable(Stylesheet* ss, const char* text, int textLen, int* valueOut, enum StylesheetVariableDtype* typeOut)
+void Stylesheet_Parse_Variable(const char* text, int textLen, int* valueOut, enum StylesheetVariableDtype* typeOut)
 {
     struct RGB rgb;
     int _int;
@@ -1014,16 +1011,8 @@ void Stylesheet_Parse_Variable(Stylesheet* ss, const char* text, int textLen, in
         *typeOut = STYLESHEET_VARIABLE_DTYPE_NUMBER;
     }
     else {
-        void* foundFont = LinearStringmap_Get(&ss->fontNameIndexMap, text);
-        if (foundFont) {
-            *valueOut = *(u8*)foundFont;
-            *typeOut = STYLESHEET_VARIABLE_DTYPE_NUMBER;
-            printf("variable assigned to font id: :%d\n", (int)(*valueOut));
-        }
-        else {
-            *valueOut = 0;
-            *typeOut = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
-        }
+        *valueOut = 0;
+        *typeOut = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
     }
 }
 
@@ -1060,7 +1049,7 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
                 StylesheetVariable newVar;
                 newVar.type = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
                 newVar.value = 0;
-                Stylesheet_Parse_Variable(ss, valText, valTextRef->len, &newVar.value, &newVar.type);
+                Stylesheet_Parse_Variable(valText, valTextRef->len, &newVar.value, &newVar.type);
                 newVar.value_DEFAULT = newVar.value;
                 newVar.type_DEFAULT = newVar.type;
 
@@ -1116,7 +1105,7 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
                 // Add screen query
                 screenQuery = Array_PushEmpty(&ss->screenQueries);
                 Hashmap_Init(&screenQuery->itemIndexMap, sizeof(int), sizeof(int), 256);
-                screenQuery->defaultStyleItem = *(StyleItem*)Array_Get(&ss->items, 0); // Copy
+                screenQuery->defaultStyleItem = ss->defaultStyleItem; // Copy
                 screenQuery->screenWidth = screenWidth;
                 screenQuery->comparator = comparatorToken;
             }
@@ -1152,7 +1141,7 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
 
                     // Try parse variable override, and add to array
                     StylesheetVariableOverride* varOverride = Array_PushEmpty(&variableOverrides);
-                    Stylesheet_Parse_Variable(ss, valText, valTextRef->len, &varOverride->value, &varOverride->type);
+                    Stylesheet_Parse_Variable(valText, valTextRef->len, &varOverride->value, &varOverride->type);
                     varOverride->variableIndex = *existingVarIndex;
                 }
                 // Variable not initialised (not found in @var) -> error
@@ -1361,7 +1350,7 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
     return 1;
 }
 
-static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Array* variableUsages, Stylesheet* ss, ImageResourceLoader* imageResourceLoader)
+static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Stylesheet* ss, ImageResourceLoader* imageResourceLoader)
 {
     int inDefaultSelector = 0;
     int i = 0;
@@ -1398,20 +1387,12 @@ static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Array* textRe
                 }
 
                 StylesheetVariable variable = *(StylesheetVariable*) Array_Get(&ss->variables, *variableIndex);
-                StyleItem* defaultStyleItem = Array_Get(&ss->items, 0);
-                Stylesheet_Parse_Variable_Property(ss, token, defaultStyleItem, variable, imageResourceLoader);
-
-                // Add a variable usage for @default item (index 0)
-                StylesheetVariableUsage* usage = Array_PushEmpty(variableUsages);
-                usage->variableIndex = *variableIndex;
-                usage->itemIndex = 0;
-                usage->propertyIdentifier = token;
+                Stylesheet_Parse_Variable_Property(ss, token, &ss->defaultStyleItem, variable, imageResourceLoader);
             }
             // If text ref -> parse property
             else if (textRef) {
                 char* text = &src[textRef->srcIndex];
-                StyleItem* defaultStyleItem = Array_Get(&ss->items, 0);
-                Stylesheet_Parse_Property(ss, token, defaultStyleItem, text, textRef->len, imageResourceLoader);
+                Stylesheet_Parse_Property(ss, token, &ss->defaultStyleItem, text, textRef->len, imageResourceLoader);
             }
 
             i += 3; continue;
@@ -1624,7 +1605,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
     if (!Stylesheet_Parse_Variables(src, tokens, ss, textRefs, variableMap)) return 0;
 
     // Parse Default
-    if (!Stylesheet_Parse_Default(src, tokens, textRefs, variableMap, variableUsages, ss, imageResourceLoader)) return 0;
+    if (!Stylesheet_Parse_Default(src, tokens, textRefs, variableMap, ss, imageResourceLoader)) return 0;
 
     // ----------------------
     // --- Parser Context ---
@@ -1712,10 +1693,9 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
         }
         else if (token == STYLE_SELECTOR_OPEN_BRACE) {
             if (AssertSelectionOpeningBraceGrammar(tokens, i)) {
-                StyleItem* defaultStyleItem = Array_Get(&ss->items, 0);
                 item.propertyFlags = 0;
                 item.layoutFlags = 0;
-                item.fontId = defaultStyleItem->fontId;
+                item.fontId = ss->defaultStyleItem.fontId;
                 i += 1;
                 continue;
             }

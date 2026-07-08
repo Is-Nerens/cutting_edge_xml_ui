@@ -23,8 +23,8 @@ void Stylesheet_Init(Stylesheet* ss)
     Hashmap_Init(&ss->itemIndexMap, sizeof(StyleItemKey), sizeof(int), 512);
     ss->fonts = Container_Create(sizeof(NU_Font));
 
-    // Create default style item
-    StyleItem* item = &ss->defaultStyleItem;
+    // Create default style item (at index 0)
+    StyleItem* item = Array_PushEmpty(&ss->items);
     memset(item, 0, sizeof(StyleItem)); // zero base
     item->propertyFlags = ~(uint64_t)0; // apply all properties
     item->propertyFlags &= ~PROPERTY_FLAG_IMAGE; // do not apply certain properties
@@ -106,7 +106,15 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     // Generate stylesheet
     printf("generating css\n");
     timer_start();
-    if (!Stylesheet_Parse(StringCstr(src), &tokens, &textRefs, &variableMap, &variableUsages, stylesheet, imageResourceLoader)) {
+    if (!Stylesheet_Parse(
+        StringCstr(src),
+        &tokens,
+        &textRefs,
+        &variableMap,
+        &variableUsages,
+        stylesheet,
+        imageResourceLoader)
+    ) {
         TokenArray_Free(&tokens);
         Array_Free(&textRefs);
         LinearStringmap_Free(&variableMap);
@@ -119,6 +127,7 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     // Free memory
     TokenArray_Free(&tokens);
     Array_Free(&textRefs);
+    Array_Free(&variableUsages);
     LinearStringmap_Free(&variableMap);
     StringFree(src);
     return 1; // Success

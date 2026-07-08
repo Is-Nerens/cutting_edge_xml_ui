@@ -69,6 +69,7 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, NodeP* node)
         InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
         inputText->type = item->inputType;
     }
+    node->fontId = item->fontId;
 }
 
 void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
@@ -101,6 +102,7 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
     int idItemIndex = -1;
 
     // Get the style items
+    StyleItem* defaultItem = Array_Get(&ss->items, 0);
     StyleItem* tagItem = NULL;
     StyleItem* classItem = NULL;
     StyleItem* idItem = NULL;
@@ -134,7 +136,7 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
     }
 
     // Apply style items in order
-    Stylesheet_ApplyStyleItemToNode(&ss->defaultStyleItem, node);
+    Stylesheet_ApplyStyleItemToNode(defaultItem, node);
     if (tagItem) Stylesheet_ApplyStyleItemToNode(tagItem, node);
     if (classItem) Stylesheet_ApplyStyleItemToNode(classItem, node);
     if (idItem) Stylesheet_ApplyStyleItemToNode(idItem, node);
@@ -152,10 +154,16 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
 
         if (applies)
         {
+            defaultItem = NULL;
             tagItem = NULL;
             classItem = NULL;
             idItem = NULL;
 
+            int defaultItemIndex = 0;
+            int* defaultQueryItemIndex = Hashmap_Get(&query->itemIndexMap, &defaultItemIndex);
+            if (defaultQueryItemIndex) {
+                defaultItem = Array_Get(&ss->items, *defaultQueryItemIndex);
+            }
             if (tagItemIndex != -1) {
                 int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &tagItemIndex);
                 if (queryItemIndex) tagItem = Array_Get(&ss->items, *queryItemIndex);
@@ -170,7 +178,7 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
             }
 
             // Apply style items in order
-            //Stylesheet_ApplyStyleItemToNode(&query->defaultStyleItem, node);
+            if (defaultItem) Stylesheet_ApplyStyleItemToNode(defaultItem, node);
             if (tagItem) Stylesheet_ApplyStyleItemToNode(tagItem, node);
             if (classItem) Stylesheet_ApplyStyleItemToNode(classItem, node);
             if (idItem) Stylesheet_ApplyStyleItemToNode(idItem, node);
