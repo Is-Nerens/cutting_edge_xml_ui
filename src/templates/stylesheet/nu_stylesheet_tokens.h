@@ -234,13 +234,13 @@ void PrintStyleTokenLine(enum NU_Style_Token token)
     printf("%s\n", name);
 }
 
-enum NU_Pseudo_Class
+typedef enum StylePseudoClass
 {
     PSEUDO_HOVER,
     PSEUDO_PRESS,
     PSEUDO_FOCUS,
     PSEUDO_UNDEFINED
-};
+} StylePseudoClass;
 
 static inline u32 Property_Token_To_Flag(enum NU_Style_Token token)
 {
@@ -292,7 +292,7 @@ static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, u8 len)
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Pseudo_Class Token_To_Pseudo_Class(enum NU_Style_Token token)
+static StylePseudoClass Token_To_Pseudo_Class(enum NU_Style_Token token)
 {
     return token - STYLE_PSEUDO_FIRST;
 }

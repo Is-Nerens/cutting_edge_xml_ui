@@ -204,7 +204,7 @@ _EXPORT Node* NU_CREATE_NODE(Node* parent, NodeType type) {
         CreateSubwindow(&GUI.winManager, node);
     }
 
-    NU_Apply_Stylesheet_To_Node(node, &GUI.stylesheet);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
     return &node->node;
 }
 
@@ -256,17 +256,17 @@ _EXPORT void NU_FOCUS_ON_INPUT(Node* node) {
             TriggerOnInputDefocusEvent(prevFocusedNode);
 
             // Remove focus style prev focused node
-            NU_Apply_Stylesheet_To_Node(prevFocusedNode, &GUI.stylesheet);
+            Stylesheet_ApplyStyleToNode(&GUI.stylesheet, prevFocusedNode);
             if (prevFocusedNode == GUI.hovered_node) {
-                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_HOVER);
+                Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_HOVER);
             }
             else if (prevFocusedNode == GUI.mouse_down_node) {
-                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_PRESS);
+                Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_PRESS);
             }
         }
 
         // Focus on input node
-        NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_FOCUS);
+        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
         NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
         InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
         InputText_MousePlaceCursor(inputText, GUI.focused_node, font, 1000000.0f);
@@ -414,29 +414,33 @@ _EXPORT void NU_Set_Class(Node* node, const char* class) {
     NodeP* nodeP = NODEP_OF(node);
     if (class == nodeP->class) return;
 
-    char* prevNodeClass = nodeP->class;
     nodeP->class = NULL;
 
     // Look for class in gui class string set
     char* gui_class_get = Stringset_Get(&GUI.class_string_set, class);
-    if (gui_class_get == NULL) { // Not found? Look in the stylesheet
-        char* style_class_get = LinearStringset_Get(&GUI.stylesheet.class_string_set, class);
-
-        // If found in the stylesheet -> add it to the gui class set
-        if (style_class_get) {
+    if (gui_class_get) {
+        nodeP->class = gui_class_get;
+    }
+    // Not found? Look in the stylesheet
+    else {
+        void* found = LinearStringmap_Get(&GUI.stylesheet.classIdMap, class);
+        if (found) {
+            // Add it to the gui class set
             nodeP->class = Stringset_Add(&GUI.class_string_set, class);
         }
-    }
-    else {
-        nodeP->class = gui_class_get;
+        // Class does not exist
+        else {
+            return;
+        }
     }
 
     // Update styling
-    NU_Apply_Stylesheet_To_Node(nodeP, &GUI.stylesheet);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP);
     if (nodeP == GUI.scroll_mouse_down_node) {
-        NU_Apply_Pseudo_Style_To_Node(nodeP, &GUI.stylesheet, PSEUDO_PRESS);
+        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_PRESS);
+
     } else if (nodeP == GUI.hovered_node) {
-        NU_Apply_Pseudo_Style_To_Node(nodeP, &GUI.stylesheet, PSEUDO_HOVER);
+        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_HOVER);
     }
 
     GUI.awaiting_redraw = true;

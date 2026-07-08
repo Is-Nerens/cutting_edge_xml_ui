@@ -15,6 +15,9 @@ typedef struct NU_Window
     SDL_Window* window;
     NU_WindowDrawlist drawlist;
     NodeP* windowNode;
+    int screenWidth;
+    int screenHeight;
+    float renderScale;
 } NU_Window;
 
 // Responsible for all window related functionality

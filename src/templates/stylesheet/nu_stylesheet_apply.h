@@ -3,13 +3,15 @@
 // ---------------------------------------
 // --- Macros to reduce code verbosity ---
 // ---------------------------------------
+#include "nu_stylesheet_structs.h"
+#include "nu_stylesheet_tokens.h"
 #define STYLE_APPLY_LAYOUT_FLAG(prop, layout_mask) if ((item->propertyFlags & (prop)) && !(node->overrideStyleFlags & (prop))) node->layoutFlags = (node->layoutFlags & ~(layout_mask)) | (item->layoutFlags & (layout_mask))
 #define STYLE_SHOULD_APPLY_TO_NODE(mask) (item->propertyFlags & mask) && !(node->overrideStyleFlags & mask)
 
 // This should be optimised (branchless)
-static void NU_Apply_Style_Item_To_Node(NodeP* node, Stylesheet_Item* item)
+static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, NodeP* node)
 {
-    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_LAYOUT_VERTICAL, LAYOUT_VERTICAL);
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_LAYOUT_DIR, LAYOUT_VERTICAL);
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_GROW, GROW_HORIZONTAL);
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_GROW, GROW_VERTICAL);
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_VERTICAL_SCROLL, OVERFLOW_VERTICAL_SCROLL);     // Overflow vertical scroll (or not)
@@ -67,107 +69,233 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, Stylesheet_Item* item)
         InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
         inputText->type = item->inputType;
     }
-    node->fontId = item->fontId; // set font
 }
 
-void NU_Apply_Stylesheet_To_Node(NodeP* node, Stylesheet* ss)
+void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
 {
-    // 1. Apply default style
-    NU_Apply_Style_Item_To_Node(node, &ss->defaultStyleItem);
+    // Get containing screen width
+    NU_Window* win = GetNodeWindow(&GUI.winManager, node);
+    int screenWidth = win->screenWidth;
 
-    // 2. Apply tag match
-    void* tag_found = Hashmap_Get(&ss->tag_item_hashmap, &node->type);
-    if (tag_found != NULL) {
-        Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, *(u32*)tag_found);
-        NU_Apply_Style_Item_To_Node(node, item);
+    // Create keys
+    StyleItemKey tagItemKey = {
+        .classID = -1,
+        .idID = -1,
+        .tag = node->type,
+        .pseudoClass = -1
+    };
+    StyleItemKey classItemKey = {
+        .classID = -1,
+        .idID = -1,
+        .tag = -1,
+        .pseudoClass = -1
+    };
+    StyleItemKey idItemKey = {
+        .classID = -1,
+        .idID = -1,
+        .tag = -1,
+        .pseudoClass = -1
+    };
+    int tagItemIndex = -1;
+    int classItemIndex = -1;
+    int idItemIndex = -1;
+
+    // Get the style items
+    StyleItem* tagItem = NULL;
+    StyleItem* classItem = NULL;
+    StyleItem* idItem = NULL;
+
+    int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &tagItemKey);
+    if (itemIndex) {
+        tagItemIndex = *itemIndex;
+        tagItem = Array_Get(&ss->items, tagItemIndex);
     }
-
-    // 3. Apply class match
-    if (node->class != NULL) {
-        char* stored_class = LinearStringset_Get(&ss->class_string_set, node->class);
-        if (stored_class != NULL) {
-            void* class_found = Hashmap_Get(&ss->class_item_hashmap, &stored_class);
-            if (class_found != NULL) {
-                Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, *(u32*)class_found);
-                NU_Apply_Style_Item_To_Node(node, item);
+    if (node->class) {
+        int* classID = LinearStringmap_Get(&ss->classIdMap, node->class);
+        if (classID) {
+            classItemKey.classID = *classID;
+            itemIndex = Hashmap_Get(&ss->itemIndexMap, &classItemKey);
+            if (itemIndex) {
+                classItemIndex = *itemIndex;
+                classItem = Array_Get(&ss->items, classItemIndex);
+            }
+        }
+    }
+    if (node->id) {
+        int* idID = LinearStringmap_Get(&ss->idIdMap, node->id);
+        if (idID) {
+            idItemKey.idID = *idID;
+            itemIndex = Hashmap_Get(&ss->itemIndexMap, &idItemKey);
+            if (itemIndex) {
+                idItemIndex = *itemIndex;
+                idItem = Array_Get(&ss->items, idItemIndex);
             }
         }
     }
 
-    // 4. Apply ID match
-    if (node->id != NULL) {
-        char* stored_id = LinearStringset_Get(&ss->id_string_set, node->id);
-        if (stored_id != NULL) {
-            void* id_found = Hashmap_Get(&ss->id_item_hashmap, &stored_id);
-            if (id_found != NULL) {
-                Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, *(u32*)id_found);
-                NU_Apply_Style_Item_To_Node(node, item);
+    // Apply style items in order
+    Stylesheet_ApplyStyleItemToNode(&ss->defaultStyleItem, node);
+    if (tagItem) Stylesheet_ApplyStyleItemToNode(tagItem, node);
+    if (classItem) Stylesheet_ApplyStyleItemToNode(classItem, node);
+    if (idItem) Stylesheet_ApplyStyleItemToNode(idItem, node);
+
+    // Apply screen queries
+    for (int i=0; i<ss->screenQueries.size; i++)
+    {
+        StylesheetScreenQuery* query = Array_Get(&ss->screenQueries, i);
+
+        bool applies = false;
+        applies |= query->comparator == STYLE_GREATER       && screenWidth > query->screenWidth;
+        applies |= query->comparator == STYLE_LESS          && screenWidth < query->screenWidth;
+        applies |= query->comparator == STYLE_GREATER_EQUAL && screenWidth >= query->screenWidth;
+        applies |= query->comparator == STYLE_LESS_EQUAL    && screenWidth <= query->screenWidth;
+
+        if (applies)
+        {
+            tagItem = NULL;
+            classItem = NULL;
+            idItem = NULL;
+
+            if (tagItemIndex != -1) {
+                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &tagItemIndex);
+                if (queryItemIndex) tagItem = Array_Get(&ss->items, *queryItemIndex);
             }
+            if (classItemIndex != -1) {
+                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &classItemIndex);
+                if (queryItemIndex) classItem = Array_Get(&ss->items, *queryItemIndex);
+            }
+            if (idItemIndex != -1) {
+                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &idItemIndex);
+                if (queryItemIndex) idItem = Array_Get(&ss->items, *queryItemIndex);
+            }
+
+            // Apply style items in order
+            //Stylesheet_ApplyStyleItemToNode(&query->defaultStyleItem, node);
+            if (tagItem) Stylesheet_ApplyStyleItemToNode(tagItem, node);
+            if (classItem) Stylesheet_ApplyStyleItemToNode(classItem, node);
+            if (idItem) Stylesheet_ApplyStyleItemToNode(idItem, node);
         }
     }
 }
 
-void NU_Apply_Pseudo_Style_To_Node(NodeP* node, Stylesheet* ss, enum NU_Pseudo_Class pseudo)
+void Stylesheet_ApplyPseudoStyleToNode(Stylesheet* ss, NodeP* node, StylePseudoClass pseudo)
 {
     if (node == NULL) return;
+    Stylesheet_ApplyStyleToNode(ss, node);
 
-    bool appliedBase = false;
+    // Get containing screen width
+    NU_Window* win = GetNodeWindow(&GUI.winManager, node);
+    int screenWidth = win->screenWidth;
 
-    // Tag pseudo style match and apply
-    Stylesheet_Tag_Pseudo_Pair key = { node->type, pseudo };
-    void* tag_pseudo_found = Hashmap_Get(&ss->tag_pseudo_item_hashmap, &key);
-    if (tag_pseudo_found != NULL) {
+    // Create keys
+    StyleItemKey tagItemKey = {
+        .classID = -1,
+        .idID = -1,
+        .tag = node->type,
+        .pseudoClass = pseudo
+    };
+    StyleItemKey classItemKey = {
+        .classID = -1,
+        .idID = -1,
+        .tag = -1,
+        .pseudoClass = pseudo
+    };
+    StyleItemKey idItemKey = {
+        .classID = -1,
+        .idID = -1,
+        .tag = -1,
+        .pseudoClass = pseudo
+    };
 
-        // Apply base style
-        NU_Apply_Stylesheet_To_Node(node, ss); appliedBase = true;
+    int tagItemIndex = -1;
+    int classItemIndex = -1;
+    int idItemIndex = -1;
 
-        // Apply tag pseudo style
-        u32 index = *(u32*)tag_pseudo_found;
-        Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, index);
-        NU_Apply_Style_Item_To_Node(node, item);
+    // Get the style items
+    StyleItem* tagPseudoItem = NULL;
+    StyleItem* classPseudoItem = NULL;
+    StyleItem* idPseudoItem = NULL;
+
+    int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &tagItemKey);
+    if (itemIndex) {
+        tagItemIndex = *itemIndex;
+        tagPseudoItem = Array_Get(&ss->items, tagItemIndex);
     }
-
-    // Class pseudo style match and apply
-    if (node->class != NULL) {
-        char* stored_class = LinearStringset_Get(&ss->class_string_set, node->class);
-        if (stored_class != NULL) {
-            Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo };
-            void* class_pseudo_found = Hashmap_Get(&ss->class_pseudo_item_hashmap, &key);
-            if (class_pseudo_found != NULL) {
-
-                // Apply base style
-                if (!appliedBase) {
-                    NU_Apply_Stylesheet_To_Node(node, ss); appliedBase = true;
-                }
-
-                // Apply class pseudo style
-                u32 index = *(u32*)class_pseudo_found;
-                Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, index);
-                NU_Apply_Style_Item_To_Node(node, item);
+    if (node->class) {
+        int* classID = LinearStringmap_Get(&ss->classIdMap, node->class);
+        if (classID) {
+            classItemKey.classID = *classID;
+            itemIndex = Hashmap_Get(&ss->itemIndexMap, &classItemKey);
+            if (itemIndex) {
+                classItemIndex = *itemIndex;
+                classPseudoItem = Array_Get(&ss->items, classItemIndex);
+            }
+        }
+    }
+    if (node->id) {
+        int* idID = LinearStringmap_Get(&ss->idIdMap, node->id);
+        if (idID) {
+            idItemKey.idID = *idID;
+            itemIndex = Hashmap_Get(&ss->itemIndexMap, &idItemKey);
+            if (itemIndex) {
+                idItemIndex = *itemIndex;
+                idPseudoItem = Array_Get(&ss->items, idItemIndex);
             }
         }
     }
 
-    // Id pseudo style match and apply
-    if (node->id != NULL) {
-        char* stored_id = LinearStringset_Get(&ss->id_string_set, node->id);
-        if (stored_id != NULL) {
-            Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo };
-            void* id_pseudo_found = Hashmap_Get(&ss->id_pseudo_item_hashmap, &key);
-            if (id_pseudo_found != NULL) {
+    // Apply style items in order
+    if (tagPseudoItem) Stylesheet_ApplyStyleItemToNode(tagPseudoItem, node);
+    if (classPseudoItem) Stylesheet_ApplyStyleItemToNode(classPseudoItem, node);
+    if (idPseudoItem) Stylesheet_ApplyStyleItemToNode(idPseudoItem, node);
 
-                // Apply base style
-                if (!appliedBase) {
-                    NU_Apply_Stylesheet_To_Node(node, ss); appliedBase = true;
-                }
+    // Apply screen queries
+    for (int i=0; i<ss->screenQueries.size; i++)
+    {
+        StylesheetScreenQuery* query = Array_Get(&ss->screenQueries, i);
 
-                // Apply id pseudo style
-                u32 index = *(u32*)id_pseudo_found;
-                Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, index);
-                NU_Apply_Style_Item_To_Node(node, item);
+        bool applies = false;
+        applies |= query->comparator == STYLE_GREATER       && screenWidth > query->screenWidth;
+        applies |= query->comparator == STYLE_LESS          && screenWidth < query->screenWidth;
+        applies |= query->comparator == STYLE_GREATER_EQUAL && screenWidth >= query->screenWidth;
+        applies |= query->comparator == STYLE_LESS_EQUAL    && screenWidth <= query->screenWidth;
+
+        if (applies)
+        {
+            StyleItem* tagItem = NULL;
+            StyleItem* classItem = NULL;
+            StyleItem* idItem = NULL;
+
+            if (tagItemIndex != -1) {
+                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &tagItemIndex);
+                if (queryItemIndex) tagItem = Array_Get(&ss->items, *queryItemIndex);
             }
+            if (classItemIndex != -1) {
+                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &classItemIndex);
+                if (queryItemIndex) classItem = Array_Get(&ss->items, *queryItemIndex);
+            }
+            if (idItemIndex != -1) {
+                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &idItemIndex);
+                if (queryItemIndex) idItem = Array_Get(&ss->items, *queryItemIndex);
+            }
+
+            // Apply style items in order
+            if (tagItem) Stylesheet_ApplyStyleItemToNode(tagItem, node);
+            if (classItem) Stylesheet_ApplyStyleItemToNode(classItem, node);
+            if (idItem) Stylesheet_ApplyStyleItemToNode(idItem, node);
         }
     }
+}
+
+int Stylesheet_ApplyToBranch(Stylesheet* stylesheet, NodeP* root)
+{
+    // Traverse tree using DFS
+    BreadthFirstSearch_Reset(&GUI.bfs, root);
+    NodeP* node;
+    while (BreadthFirstSearch_Next(&GUI.bfs, &node)) {
+        Stylesheet_ApplyStyleToNode(stylesheet, node);
+    }
+    return 1; // success
 }
 
 int NU_Internal_Apply_Stylesheet(Stylesheet* stylesheet)
@@ -176,7 +304,7 @@ int NU_Internal_Apply_Stylesheet(Stylesheet* stylesheet)
     BreadthFirstSearch_Reset(&GUI.bfs, GUI.tree.root);
     NodeP* node;
     while (BreadthFirstSearch_Next(&GUI.bfs, &node)) {
-        NU_Apply_Stylesheet_To_Node(node, stylesheet);
+        Stylesheet_ApplyStyleToNode(stylesheet, node);
     }
     return 1; // success
 }

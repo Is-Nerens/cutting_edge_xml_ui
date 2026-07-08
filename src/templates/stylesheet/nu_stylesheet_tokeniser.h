@@ -83,7 +83,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
             // Add property text reference
             if (word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                 Array_Push(textRefs, &ref);
 
                 // Variable property value
@@ -115,7 +115,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
             // Add property text reference
             if (word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                 Array_Push(textRefs, &ref);
 
                 // Variable property value
@@ -142,7 +142,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
             // Class selector word completed -> add text reference and class selector token
             else if (ctx == CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
             }
@@ -150,7 +150,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
             // Id selector word completed -> add text reference and id selector token
             else if (ctx == CSS_TOKENISE_CTX_ID_SELECTOR_NAME && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_ID_SELECTOR);
             }
@@ -158,7 +158,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
             // Font name word completed > add text reference and font name token
             else if (ctx == CSS_TOKENISE_CTX_FONT_CREATION_NAME && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_FONT_NAME);
             }
@@ -195,7 +195,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
             // Property value word completed (most common first)
             else if (ctx == CSS_TOKENISE_CTX_PROPERTY_VALUE && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                 Array_Push(textRefs, &ref);
 
                 // Determine if is variable property value or normal property value
@@ -211,7 +211,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
             // Class selector word completed
             else if (ctx == CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
                 ctx = CSS_TOKENISE_CTX_GLOBAL;
@@ -220,7 +220,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
             // Id selector word completed
             else if (ctx == CSS_TOKENISE_CTX_ID_SELECTOR_NAME && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_ID_SELECTOR);
                 ctx = CSS_TOKENISE_CTX_GLOBAL;
@@ -249,7 +249,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
             // Variable name definition word completed
             else if (ctx == CSS_TOKENISE_CTX_VARIABLE_NAME_DEFINE && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_VARIABLE_NAME);
                 ctx = CSS_TOKENISE_CTX_SELECTOR;
@@ -258,7 +258,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
             // Special font name word completed
             else if (ctx == CSS_TOKENISE_CTX_FONT_CREATION_NAME && word.length > 0) {
                 StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                 Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_FONT_NAME);
             }
@@ -282,7 +282,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
                 // Tag as screen width value
                 else {
                     StyleTextRef ref = { tokens->size, i - word.length - 1, word.length };
-                    StringCstr(src)[ref.src_index + ref.char_count] = '\0';
+                    StringCstr(src)[ref.srcIndex + ref.len] = '\0';
                     Array_Push(textRefs, &ref);
                     TokenArray_Add(tokens, STYLE_SCREEN_QUERY_WIDTH);
                 }

@@ -18,7 +18,7 @@
 #define STATE_FLAG_DELETED      (1 << 2)
 
 // Property flags
-#define PROPERTY_FLAG_LAYOUT_VERTICAL   (1ULL << 0)
+#define PROPERTY_FLAG_LAYOUT_DIR   (1ULL << 0)
 #define PROPERTY_FLAG_GROW              (1ULL << 1)
 #define PROPERTY_FLAG_VERTICAL_SCROLL   (1ULL << 2)
 #define PROPERTY_FLAG_HORIZONTAL_SCROLL (1ULL << 3)
@@ -64,8 +64,8 @@
 
 typedef enum NodeType
 {
-    NU_WINDOW, NU_BOX, NU_BUTTON, 
-    NU_INPUT, NU_CANVAS, NU_IMAGE, 
+    NU_WINDOW, NU_BOX, NU_BUTTON,
+    NU_INPUT, NU_CANVAS, NU_IMAGE,
     NU_TABLE, NU_THEAD, NU_ROW,
     NU_FRAME, NU_IMPORT, NU_NAT
 } NodeType;
@@ -144,7 +144,7 @@ typedef struct NU_NodeDimensions
     float width, height;
 } NU_NodeDimensions;
 
-typedef struct NU_ClipBounds 
+typedef struct NU_ClipBounds
 {
     float top;
     float bottom;
@@ -157,7 +157,7 @@ void NU_ApplyNodeDefaults(NodeP* node)
     // zero init
     memset(&node->node, 0, sizeof(node->node));
     memset(&node->typeData, 0, sizeof(node->typeData));
-    
+
     node->class = NULL;
     node->id = NULL;
     node->node.textContent = NULL;
@@ -178,12 +178,12 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->verticalAlignment = 0;
     node->horizontalTextAlignment = 1;
     node->verticalTextAlignment = 1;
-    
+
     // Set defaults based on node type
     switch (node->type)
     {
     case NU_TABLE:
-        node->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
+        node->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_DIR;
         node->layoutFlags |= LAYOUT_VERTICAL;
         break;
     case NU_THEAD:

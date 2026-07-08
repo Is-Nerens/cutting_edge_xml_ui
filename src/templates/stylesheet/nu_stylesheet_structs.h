@@ -1,25 +1,16 @@
 #pragma once
-
 #include "nu_stylesheet_tokens.h"
-typedef struct Stylesheet_Tag_Pseudo_Pair
-{
-    int tag;
-    int pseudo_class;
-} Stylesheet_Tag_Pseudo_Pair;
 
-typedef struct Stylesheet_String_Pseudo_Pair
-{
-    char* string;
-    int pseudo_class;
-} Stylesheet_String_Pseudo_Pair;
-
-typedef struct Stylesheet_Item
-{
-    uint64_t propertyFlags;
-    char* class;
-    char* id;
+typedef struct StyleItemKey {
+    int classID;
+    int idID;
     int tag;
-    int item_index;
+    int pseudoClass;
+} StyleItemKey;
+
+typedef struct StyleItem
+{
+    u64 propertyFlags;
     int imageHandle;
     u16 prefWidth, prefHeight;
     u16 minWidth, maxWidth, minHeight, maxHeight;
@@ -37,7 +28,7 @@ typedef struct Stylesheet_Item
     char horizontalTextAlignment;
     char verticalTextAlignment;
     u8 inputType;
-} Stylesheet_Item;
+} StyleItem;
 
 typedef enum StylesheetVariableDtype
 {
@@ -61,17 +52,6 @@ typedef enum StylesheetVariableDtype
     STYLESHEET_VARIABLE_DTYPE_UNKNOWN,
 } StylesheetVariableDtype;
 
-typedef union StylesheetVariableValue {
-    struct RGB rgb;
-    int _int;
-    u16 _u16;
-    u8  _u8;
-} StylesheetVariableValue;
-
-typedef struct StylesheetVariable {
-    StylesheetVariableValue value;
-} StylesheetVariable;
-
 typedef struct StylesheetVariable
 {
     enum StylesheetVariableDtype type;
@@ -80,44 +60,39 @@ typedef struct StylesheetVariable
     int value;
 } StylesheetVariable;
 
-typedef struct StylesheetVariableBinding
-{
-    u16 variableIndex;
-    u16 itemIndex;
-    u16 size;
-    u16 offset; // offset in bytes into the corresponding Stylesheet_Item
-} StylesheetVariableBinding;
-
 typedef struct StylesheetVariableOverride
 {
-    enum StylesheetVariableDtype type_OVERRIDE;
-    int value_OVERRIDE;
-    u16 variableIndex;
+    int variableIndex;
+    enum StylesheetVariableDtype type;
+    int value;
 } StylesheetVariableOverride;
+
+typedef struct StylesheetVariableUsage
+{
+    int itemIndex;
+    int permutedItemIndex;
+    int variableIndex;
+    enum NU_Style_Token propertyIdentifier;
+} StylesheetVariableUsage;
 
 typedef struct StylesheetScreenQuery
 {
-    int overrideArrayPartitionStart;
-    int overrideArrayPartitionCount;
+    Hashmap itemIndexMap;
+    StyleItem defaultStyleItem;
     enum NU_Style_Token comparator;
     int screenWidth;
 } StylesheetScreenQuery;
 
 typedef struct Stylesheet_Scrollbar_Style
 {
-    // Bar
+    bool overlay;
     u8 width;
     u8 height;
-    bool overlay;
-
-    // Thumb
     u8 thumbMinSize;
     u8 thumbBorderTop, thumbBorderBottom, thumbBorderLeft, thumbBorderRight;
     u8 thumbBorderRadiusTl, thumbBorderRadiusTr, thumbBorderRadiusBl, thumbBorderRadiusBr;
     u8 thumbBackgroundR, thumbBackgroundG, thumbBackgroundB;
     u8 thumbBorderR, thumbBorderG, thumbBorderB;
-
-    // Track
     u8 trackPadTop, trackPadBottom, trackPadLeft, trackPadRight;
     u8 trackBorderTop, trackBorderBottom, trackBorderLeft, trackBorderRight;
     u8 trackBorderRadiusTl, trackBorderRadiusTr, trackBorderRadiusBl, trackBorderRadiusBr;
@@ -130,26 +105,19 @@ typedef struct Stylesheet
     Array items;
     Array pseudoItems;
     Array variables;
-    Array variableOverrides;
-    Array variableBindings;
     Array screenQueries;
-    LinearStringset class_string_set;
-    LinearStringset id_string_set;
-    Hashmap class_item_hashmap;
-    Hashmap id_item_hashmap;
-    Hashmap tag_item_hashmap;
-    Hashmap tag_pseudo_item_hashmap;
-    Hashmap class_pseudo_item_hashmap;
-    Hashmap id_pseudo_item_hashmap;
+    LinearStringmap classIdMap;
+    LinearStringmap idIdMap;
+    Hashmap itemIndexMap;
     LinearStringmap fontNameIndexMap;
     Container fonts;
-    Stylesheet_Item defaultStyleItem;
+    StyleItem defaultStyleItem;
     Stylesheet_Scrollbar_Style scrollbarStyle;
 } Stylesheet;
 
 typedef struct StyleTextRef
 {
-    u32 NU_Token_index;
-    u32 src_index;
-    u8 char_count;
+    u32 tokenIndex;
+    u32 srcIndex;
+    u32 len;
 } StyleTextRef;

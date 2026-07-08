@@ -2,6 +2,27 @@
 #include <window/nu_window_manager_structs.h>
 #include <window/cursor.h>
 
+void WindowManager_UpdateWindowRenderScale(WindowManager* winManager, int windowID)
+{
+    NU_Window* win = Container_Get(&winManager->windows, windowID);
+    int winPtsW, winPtsH;
+    int winPxW, winPxH;
+    SDL_GetWindowSize(win->window, &winPtsW, &winPtsH);
+    SDL_GetWindowSizeInPixels(win->window, &winPxW, &winPxH);
+    win->renderScale = (float)winPxW / (float)winPtsW;
+}
+
+void WindowManager_UpdateWindowScreenDimensions(WindowManager* winManager, int windowID)
+{
+    NU_Window* win = Container_Get(&winManager->windows, windowID);
+    SDL_DisplayID displayID = SDL_GetDisplayForWindow(win->window);
+    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
+    if (mode != NULL) {
+        win->screenWidth = mode->w * win->renderScale;
+        win->screenHeight = mode->h * win->renderScale;
+    }
+}
+
 void CreateSubwindow(WindowManager* winManager, NodeP* node)
 {
     // Create NU_Window
@@ -27,6 +48,8 @@ void CreateSubwindow(WindowManager* winManager, NodeP* node)
 
     // Add NU_Window to Window Manager
     node->windowID = Container_Add(&winManager->windows, &win);
+    WindowManager_UpdateWindowRenderScale(winManager, node->windowID);
+    WindowManager_UpdateWindowScreenDimensions(winManager, node->windowID);
 }
 
 void WindowManager_DeleteSubwindow(WindowManager* winManager, NodeP* node)
@@ -110,10 +133,26 @@ int GetFrametime()
     return frameTimeMs;
 }
 
+inline NU_Window* GetNodeWindow(WindowManager* winManager, NodeP* node)
+{
+    return Container_Get(&winManager->windows, node->windowID);
+}
+
 SDL_Window* GetSDL_Window(WindowManager* winManager, int windowID)
 {
     NU_Window* win = Container_Get(&winManager->windows, windowID);
     return win->window;
+}
+
+NodeP* GetWindowNodeFromSDL_Window(WindowManager* winManager, SDL_Window* window)
+{
+    for (int i=0; i<winManager->windows.size; i++) {
+        NU_Window* win = Container_GetAt(&winManager->windows, i);
+        if (win->window == window) {
+            return win->windowNode;
+        }
+    }
+    return NULL;
 }
 
 NU_WindowDrawlist* GetDrawlist(WindowManager* winManager, int windowID)
@@ -128,7 +167,7 @@ void AssignRootWindow(WindowManager* winManager, NodeP* rootNode)
     SDL_ShowWindow(window);
 
     int winW, winH;
-    SDL_GetWindowSize(window, &winW, &winH);
+    SDL_GetWindowSizeInPixels(window, &winW, &winH);
     rootNode->node.width = (float)winW;
     rootNode->node.height = (float)winH;
     rootNode->node.minWidth = winW;
@@ -138,6 +177,9 @@ void AssignRootWindow(WindowManager* winManager, NodeP* rootNode)
     rootNode->windowID = winManager->rootWindowID;
     NU_Window* rootWin = Container_Get(&winManager->windows, rootNode->windowID);
     rootWin->windowNode = rootNode;
+
+    WindowManager_UpdateWindowRenderScale(winManager, rootNode->windowID);
+    WindowManager_UpdateWindowScreenDimensions(winManager, rootNode->windowID);
 
     // Initialise drawlist
     NU_WindowDrawlist* list = GetDrawlist(winManager, winManager->rootWindowID);
@@ -150,22 +192,13 @@ void AssignRootWindow(WindowManager* winManager, NodeP* rootNode)
 
 void GetLocalMouseCoords(WindowManager* winManager, float* outX, float* outY)
 {
-    SDL_Window* hoveredWindow = GetSDL_Window(winManager, winManager->hoveredWindowNode->windowID);
-
-    // Compute the render scale
-    int winPtsW, winPtsH;
-    int winPxW, winPxH;
-    SDL_GetWindowSize(hoveredWindow, &winPtsW, &winPtsH);
-    SDL_GetWindowSizeInPixels(hoveredWindow, &winPxW, &winPxH);
-    float renderScale = (float)winPxW / (float)winPtsW;
-
-    // Compute the result
+    NU_Window* win = Container_Get(&winManager->windows, winManager->hoveredWindowNode->windowID);
     float globalPtsX, globalPtsY;
     int windowPtsX, windowPtsY;
     SDL_GetGlobalMouseState(&globalPtsX, &globalPtsY);
-    SDL_GetWindowPosition(hoveredWindow, &windowPtsX, &windowPtsY);
-    *outX = (globalPtsX - windowPtsX) * renderScale;
-    *outY = (globalPtsY - windowPtsY) * renderScale;
+    SDL_GetWindowPosition(win->window, &windowPtsX, &windowPtsY);
+    *outX = (globalPtsX - windowPtsX) * win->renderScale;
+    *outY = (globalPtsY - windowPtsY) * win->renderScale;
 }
 
 void WindowManager_SetHoveredWindow(WindowManager* winManager, SDL_Window* window)

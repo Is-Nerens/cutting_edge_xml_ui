@@ -6,7 +6,7 @@ static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
     float left_wall = node->node.x;
     float right_wall = node->node.x + node->node.width;
     float top_wall = node->node.y;
-    float bottom_wall = node->node.y + node->node.height; 
+    float bottom_wall = node->node.y + node->node.height;
     if (node->clippedAncestor != NULL) {
         NU_ClipBounds* clip = Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
         left_wall = max(clip->left, node->node.x);
@@ -76,9 +76,9 @@ static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
 }
 
 static bool NU_Mouse_Over_Node_V_Scrollbar(
-    NodeP* node, Stylesheet_Scrollbar_Style* scrollbarStyle, 
+    NodeP* node, Stylesheet_Scrollbar_Style* scrollbarStyle,
     float mouseX, float mouseY, float* grabOffsetOut
-) 
+)
 {
     Node* n = &node->node;
 
@@ -108,7 +108,7 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(
 
     // Compute scroll transform values
     float scrollContentHeight = n->contentHeight;
-    float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom; 
+    float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom;
     float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
 
     // Compute thumb pos and constrained height
@@ -127,7 +127,7 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(
 }
 
 void NU_Mouse_Hover()
-{   
+{
     GUI.prev_hovered_node = GUI.hovered_node;
     GUI.hovered_node = NULL;
     GUI.scroll_hovered_node = NULL;
@@ -153,7 +153,7 @@ void NU_Mouse_Hover()
 
     // traverse the tree
     bool break_loop = false;
-    while (stack.size > 0 && !break_loop) 
+    while (stack.size > 0 && !break_loop)
     {
         // Pop the stack
         NodeP* current_node = *(NodeP**)Array_Get(&stack, stack.size - 1);
@@ -169,8 +169,8 @@ void NU_Mouse_Hover()
         NodeP* child = current_node->firstChild;
         while(child != NULL) {
 
-            if (NodeStateHidden(child) || 
-                child->layoutFlags & POSITION_ABSOLUTE || 
+            if (NodeStateHidden(child) ||
+                child->layoutFlags & POSITION_ABSOLUTE ||
                 child->type == NU_WINDOW ||
                 !NU_MouseIsOverNode(child, mouseX, mouseY))
             {
@@ -192,15 +192,15 @@ void NU_Mouse_Hover()
 
     // On mouse in event triggered
     if (GUI.hovered_node != NULL &&
-        GUI.prev_hovered_node != GUI.hovered_node && 
+        GUI.prev_hovered_node != GUI.hovered_node &&
         GUI.hovered_node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN)
     {
         TriggerOnMouseInEvent(GUI.hovered_node, mouseX, mouseY);
     }
 
     // On mouse out event triggered
-    if (GUI.prev_hovered_node != NULL && 
-        GUI.prev_hovered_node != GUI.hovered_node && 
+    if (GUI.prev_hovered_node != NULL &&
+        GUI.prev_hovered_node != GUI.hovered_node &&
         GUI.prev_hovered_node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT)
     {
         TriggerOnMouseOutEvent(GUI.prev_hovered_node, mouseX, mouseY);
@@ -208,8 +208,8 @@ void NU_Mouse_Hover()
 
     // Apply hover pseudo style
     if (GUI.hovered_node != GUI.prev_hovered_node) {
-        if (GUI.prev_hovered_node != NULL && GUI.prev_hovered_node != GUI.mouse_down_node && GUI.prev_hovered_node != GUI.focused_node) NU_Apply_Stylesheet_To_Node(GUI.prev_hovered_node, &GUI.stylesheet);
-        if (GUI.hovered_node != GUI.mouse_down_node && GUI.hovered_node != GUI.focused_node) NU_Apply_Pseudo_Style_To_Node(GUI.hovered_node, &GUI.stylesheet, PSEUDO_HOVER);
+        if (GUI.prev_hovered_node != NULL && GUI.prev_hovered_node != GUI.mouse_down_node && GUI.prev_hovered_node != GUI.focused_node) Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.prev_hovered_node);
+        if (GUI.hovered_node != GUI.mouse_down_node && GUI.hovered_node != GUI.focused_node) Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.hovered_node, PSEUDO_HOVER);
         GUI.awaiting_redraw = true;
     }
 }

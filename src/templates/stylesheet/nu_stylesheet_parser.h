@@ -4,12 +4,12 @@
 #include "nu_stylesheet_structs.h"
 #include "nu_stylesheet_tokens.h"
 
-void Stylesheet_Overwrite_Style_Item(Stylesheet_Item* item, Stylesheet_Item* overwriter)
+void Stylesheet_OverwriteStyleItem(StyleItem* item, StyleItem* overwriter)
 {
     item->propertyFlags |= overwriter->propertyFlags;
 
     // Branchless layoutFlags update
-    item->layoutFlags = (item->layoutFlags & ~LAYOUT_VERTICAL)                 | ((overwriter->layoutFlags & LAYOUT_VERTICAL)                 * !!(overwriter->propertyFlags & PROPERTY_FLAG_LAYOUT_VERTICAL));
+    item->layoutFlags = (item->layoutFlags & ~LAYOUT_VERTICAL)                 | ((overwriter->layoutFlags & LAYOUT_VERTICAL)                 * !!(overwriter->propertyFlags & PROPERTY_FLAG_LAYOUT_DIR));
     item->layoutFlags = (item->layoutFlags & ~(GROW_HORIZONTAL|GROW_VERTICAL)) | ((overwriter->layoutFlags & (GROW_HORIZONTAL|GROW_VERTICAL)) * !!(overwriter->propertyFlags & PROPERTY_FLAG_GROW));
     item->layoutFlags = (item->layoutFlags & ~OVERFLOW_VERTICAL_SCROLL)        | ((overwriter->layoutFlags & OVERFLOW_VERTICAL_SCROLL)        * !!(overwriter->propertyFlags & PROPERTY_FLAG_VERTICAL_SCROLL));
     item->layoutFlags = (item->layoutFlags & ~OVERFLOW_HORIZONTAL_SCROLL)      | ((overwriter->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL)      * !!(overwriter->propertyFlags & PROPERTY_FLAG_HORIZONTAL_SCROLL));
@@ -76,7 +76,7 @@ void Stylesheet_Overwrite_Style_Item(Stylesheet_Item* item, Stylesheet_Item* ove
     item->fontId = overwriter->fontId;
 }
 
-void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, Stylesheet_Item* item, const char* text, int textLen, ImageResourceLoader* imageResourceLoader)
+void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, StyleItem* item, const char* text, int textLen, ImageResourceLoader* imageResourceLoader)
 {
     switch (token)
     {
@@ -86,10 +86,10 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
             {
                 case 'v':
                     item->layoutFlags |= LAYOUT_VERTICAL;
-                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; break;
+                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_DIR; break;
                     break;
                 case 'h':
-                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; break;
+                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_DIR; break;
             }
             break;
 
@@ -456,7 +456,7 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
     }
 }
 
-void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Token token, Stylesheet_Item* item, StylesheetVariable variable, ImageResourceLoader* imageResourceLoader)
+void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Token token, StyleItem* item, StylesheetVariable variable, ImageResourceLoader* imageResourceLoader)
 {
     switch (token)
     {
@@ -466,10 +466,10 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
             {
                 case STYLESHEET_VARIABLE_DTYPE_VERTICAL:
                     item->layoutFlags |= LAYOUT_VERTICAL;
-                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; break;
+                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_DIR; break;
                     break;
                 case STYLESHEET_VARIABLE_DTYPE_HORIZONTAL:
-                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; break;
+                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_DIR; break;
                 default:
                     break;
             }
@@ -910,9 +910,9 @@ StyleTextRef* BinarySearchTextRef(Array* textRefs, int targetTokenIndex)
     {
         int mid = left + (right - left) / 2;
         StyleTextRef* textRef = (StyleTextRef*)Array_Get(textRefs, mid);
-        if (textRef->NU_Token_index == targetTokenIndex) {
+        if (textRef->tokenIndex == targetTokenIndex) {
             return textRef;  // found
-        } else if (textRef->NU_Token_index < targetTokenIndex) {
+        } else if (textRef->tokenIndex < targetTokenIndex) {
             left = mid + 1;
         } else {
             right = mid - 1;
@@ -1010,6 +1010,10 @@ void Stylesheet_Parse_Variable(const char* text, int textLen, int* valueOut, enu
         *valueOut = _int;
         *typeOut = STYLESHEET_VARIABLE_DTYPE_NUMBER;
     }
+    else {
+        *valueOut = 0;
+        *typeOut = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
+    }
 }
 
 static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet* ss, Array* textRefs, LinearStringmap* variableMap)
@@ -1038,19 +1042,19 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
             if (varNameTextRef && valTextRef)
             {
                 // Get variable name and value strings
-                char* varName = &src[varNameTextRef->src_index];
-                char* valText = &src[valTextRef->src_index];
+                char* varName = &src[varNameTextRef->srcIndex];
+                char* valText = &src[valTextRef->srcIndex];
 
                 // Try to parse variable init value (store bytes as an int and infer type)
                 StylesheetVariable newVar;
                 newVar.type = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
                 newVar.value = 0;
-                Stylesheet_Parse_Variable(valText, valTextRef->char_count, &newVar.value, &newVar.type);
+                Stylesheet_Parse_Variable(valText, valTextRef->len, &newVar.value, &newVar.type);
                 newVar.value_DEFAULT = newVar.value;
                 newVar.type_DEFAULT = newVar.type;
 
                 // Variable exists -> overwrite value
-                u16* existingVarIndex = LinearStringmap_Get(variableMap, varName);
+                int* existingVarIndex = LinearStringmap_Get(variableMap, varName);
                 if (existingVarIndex) {
                     StylesheetVariable* variable = Array_Get(&ss->variables, *existingVarIndex);
                     *variable = newVar;
@@ -1059,7 +1063,7 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
                 else {
                     // Add variable
                     Array_Push(&ss->variables, &newVar);
-                    u16 index = ss->variables.size - 1;
+                    int index = ss->variables.size - 1;
 
                     // Add index to variableMap
                     LinearStringmap_Set(variableMap, varName, &index);
@@ -1074,9 +1078,10 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
     return 1;
 }
 
-static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Stylesheet* ss, Array* textRefs, LinearStringmap* variableMap)
+static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Stylesheet* ss, Array* textRefs, LinearStringmap* variableMap, Array* variableUsages, ImageResourceLoader* imageResourceLoader)
 {
     StylesheetScreenQuery* screenQuery = NULL;
+    Array variableOverrides; Array_Init(&variableOverrides, sizeof(StylesheetVariableOverride), 128);
     int inScreenQuerySelector = 0;
     int i = 0;
 
@@ -1093,20 +1098,21 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
 
             // Get screen width text ref
             StyleTextRef* textRef = BinarySearchTextRef(textRefs, i+2);
-            const char* text = &src[textRef->src_index];
+            const char* text = &src[textRef->srcIndex];
             int screenWidth;
             if (String_To_Int(&screenWidth, text)) {
 
                 // Add screen query
                 screenQuery = Array_PushEmpty(&ss->screenQueries);
+                Hashmap_Init(&screenQuery->itemIndexMap, sizeof(int), sizeof(int), 256);
+                screenQuery->defaultStyleItem = ss->defaultStyleItem; // Copy
                 screenQuery->screenWidth = screenWidth;
                 screenQuery->comparator = comparatorToken;
-                screenQuery->overrideArrayPartitionStart = ss->variableOverrides.size;
-                screenQuery->overrideArrayPartitionCount = 0;
             }
             else {
                 char errMessage[128];
                 snprintf(errMessage, sizeof(errMessage), "<CSS Error> Expected screen width (int), got \"%s\" ','", text);
+                Array_Free(&variableOverrides);
                 return 0;
             }
 
@@ -1125,38 +1131,88 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
             if (varNameTextRef && valTextRef) {
 
                 // Get variable name
-                char* varName = &src[varNameTextRef->src_index];
-                char* valText = &src[valTextRef->src_index];
+                char* varName = &src[varNameTextRef->srcIndex];
+                char* valText = &src[valTextRef->srcIndex];
 
                 // Get existing variable index
-                u16* existingVarIndex = LinearStringmap_Get(variableMap, varName);
+                int* existingVarIndex = LinearStringmap_Get(variableMap, varName);
                 if (existingVarIndex) {
                     StylesheetVariable* variable = Array_Get(&ss->variables, *existingVarIndex);
 
-                    // Try parse variable, store as packed int and infer type
-                    StylesheetVariableOverride varOverride;
-                    varOverride.type_OVERRIDE = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
-                    varOverride.value_OVERRIDE = 0;
-                    varOverride.variableIndex = *existingVarIndex;
-                    Stylesheet_Parse_Variable(valText, valTextRef->char_count, &varOverride.value_OVERRIDE, &varOverride.type_OVERRIDE);
-
-                    // Add variable override
-                    Array_Push(&ss->variableOverrides, &varOverride);
-                    screenQuery->overrideArrayPartitionCount++;
+                    // Try parse variable override, and add to array
+                    StylesheetVariableOverride* varOverride = Array_PushEmpty(&variableOverrides);
+                    Stylesheet_Parse_Variable(valText, valTextRef->len, &varOverride->value, &varOverride->type);
+                    varOverride->variableIndex = *existingVarIndex;
                 }
                 // Variable not initialised (not found in @var) -> error
                 else {
                     char errMessage[128];
                     snprintf(errMessage, sizeof(errMessage), "<CSS Error> Variable \"%s\" uninitialised! Add this variable to @var','", varName);
+                    Array_Free(&variableOverrides);
                     return 0;
                 }
             }
             i += 3; continue; // ^
         }
-        else if (token == STYLE_SELECTOR_CLOSE_BRACE) inScreenQuerySelector = 0; // Exit @screen selector
+        else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
+
+            // Modify all stylesheet variables in-place with overrides
+            for (int vo=0; vo<variableOverrides.size; vo++) {
+                StylesheetVariableOverride* varOverride = Array_Get(&variableOverrides, vo);
+                StylesheetVariable* variable = Array_Get(&ss->variables, varOverride->variableIndex);
+                variable->value = varOverride->value;
+                variable->type = varOverride->type;
+            }
+
+            // Duplicate all style items that have modified variables
+            for (int u=0; u<variableUsages->size; u++)
+            {
+                StylesheetVariableUsage* usage = Array_Get(variableUsages, u);
+                StylesheetVariable* variable = Array_Get(&ss->variables, usage->variableIndex);
+
+                // If variable was modified (overridden by @screen)
+                if (variable->value != variable->value_DEFAULT || variable->type != variable->type_DEFAULT) {
+
+                    int* itemPermutationIndex = Hashmap_Get(&screenQuery->itemIndexMap, &usage->itemIndex);
+                    StyleItem* itemPermutation = NULL;
+
+                    // Create permuted item if it doesn't exist
+                    if (!itemPermutationIndex)
+                    {
+                        // Get existing style item
+                        StyleItem* existingItem = Array_Get(&ss->items, usage->itemIndex);
+
+                        // Create style item permutation of existing style item
+                        itemPermutation = Array_PushEmpty(&ss->items);
+                        *itemPermutation = *existingItem; // copy
+                        itemPermutation->propertyFlags = 0;
+                        usage->permutedItemIndex = ss->items.size - 1;
+
+                        // Add mapping to permuted item to screen query hashmap (map base item -> index of permuted item)
+                        Hashmap_Set(&screenQuery->itemIndexMap, &usage->itemIndex, &usage->permutedItemIndex);
+                    }
+                    else {
+                        itemPermutation = Array_Get(&ss->items, *itemPermutationIndex);
+                    }
+
+                    // Apply (now modified) variable to style item
+                    Stylesheet_Parse_Variable_Property(ss, usage->propertyIdentifier, itemPermutation, *variable, imageResourceLoader);
+                }
+            }
+
+            // Reset modified variable values to their defaults (for the next @screen)
+            for (int va=0; va<ss->variables.size; va++) {
+                StylesheetVariable* variable = Array_Get(&ss->variables, va);
+                variable->value = variable->value_DEFAULT;
+                variable->type = variable->type_DEFAULT;
+            }
+
+            inScreenQuerySelector = 0;
+        }
         i += 1;
     }
 
+    Array_Free(&variableOverrides);
     return 1;
 }
 
@@ -1179,7 +1235,7 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
             if (!AssertFontCreationSelectorGrammar(tokens, i)) return 0;
 
             StyleTextRef* textRef = BinarySearchTextRef(textRefs, i+1);
-            if (textRef) fontName = &src[textRef->src_index];
+            if (textRef) fontName = &src[textRef->srcIndex];
             inFontSelector = 1; // Enter @font selector
             i += 3; continue; // ^
         }
@@ -1192,7 +1248,7 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
 
             if (textRef)
             {
-                char* propertyText = &src[textRef->src_index];
+                char* propertyText = &src[textRef->srcIndex];
 
                 switch (token)
                 {
@@ -1319,8 +1375,8 @@ static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Array* textRe
             enum NU_Style_Token secondNextToken = TokenArray_Get(tokens, i+2);
             if (secondNextToken == STYLE_VARIABLE_PROPERTY_VALUE) {
 
-                char* variableName = &src[textRef->src_index];
-                u16* variableIndex = LinearStringmap_Get(variableMap, variableName);
+                char* variableName = &src[textRef->srcIndex];
+                int* variableIndex = LinearStringmap_Get(variableMap, variableName);
 
                 // Error! variable not found
                 if (!variableIndex) {
@@ -1335,8 +1391,8 @@ static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Array* textRe
             }
             // If text ref -> parse property
             else if (textRef) {
-                char* text = &src[textRef->src_index];
-                Stylesheet_Parse_Property(ss, token, &ss->defaultStyleItem, text, textRef->char_count, imageResourceLoader);
+                char* text = &src[textRef->srcIndex];
+                Stylesheet_Parse_Property(ss, token, &ss->defaultStyleItem, text, textRef->len, imageResourceLoader);
             }
 
             i += 3; continue;
@@ -1540,13 +1596,10 @@ enum StylesheetParseCtx
     STYLE_PARSE_CTX_SCROLL_TRACK_SELECTOR,
 };
 
-static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Stylesheet* ss, ImageResourceLoader* imageResourceLoader)
+static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Array* variableUsages, Stylesheet* ss, ImageResourceLoader* imageResourceLoader)
 {
     // Parse Variables
     if (!Stylesheet_Parse_Variables(src, tokens, ss, textRefs, variableMap)) return 0;
-
-    // Parse Screen Queries
-    if (!Stylesheet_Parse_Screen_Queries(src, tokens, ss, textRefs, variableMap)) return 0;
 
     // Parse Fonts
     if (!Stylesheet_Parse_Fonts(ss, src, tokens, textRefs)) return 0;
@@ -1562,9 +1615,10 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
        6 == var selector; 7 == screen selector;
     */
     enum StylesheetParseCtx ctx = STYLE_PARSE_CTX_SELECTOR;
-    u32 selectorIndexes[64];
+    u32 selectorIndexes[256];
     int selectorCount = 0;
-    int succeeded = 1;
+    int classIdAutoIncr = 0;
+    int idIdAutoIncr = 0;
 
     // ------------------------------
     // --- Text Reference Context ---
@@ -1575,7 +1629,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
     // --------------------------
     // --- Working Style Item ---
     // --------------------------
-    Stylesheet_Item item;
+    StyleItem item;
     item.propertyFlags = 0;
     item.fontId = 0;
 
@@ -1637,7 +1691,6 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             i += 3;
             continue;
         }
-
         else if (token == STYLE_SELECTOR_OPEN_BRACE) {
             if (AssertSelectionOpeningBraceGrammar(tokens, i)) {
                 item.propertyFlags = 0;
@@ -1646,20 +1699,18 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
                 i += 1;
                 continue;
             }
-            else {
-                succeeded = 0; break;
-            }
+            else return 0;
         }
         else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
-            if (!AssertSelectionClosingBraceGrammar(tokens, i)) { succeeded = 0; break; }
+            if (!AssertSelectionClosingBraceGrammar(tokens, i)) return 0;
 
             if (ctx == 0) {
                 for (int j=0; j<selectorCount; j++) {
-                    u32 item_index = selectorIndexes[j];
-                    Stylesheet_Item* curr_item = Array_Get(&ss->items, item_index);
+                    int itemIndex = selectorIndexes[j];
+                    StyleItem* currItem = Array_Get(&ss->items, itemIndex);
 
                     // Update current item
-                    Stylesheet_Overwrite_Style_Item(curr_item, &item);
+                    Stylesheet_OverwriteStyleItem(currItem, &item);
                 }
                 selectorCount = 0;
             }
@@ -1668,303 +1719,191 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             i += 1;
             continue;
         }
-        else if (NU_Is_Tag_Selector_Token(token)) {
-            if (i < tokens->size - 1) {
+        else if (NU_Is_Tag_Selector_Token(token))
+        {
+            if (i < tokens->size - 1)
+            {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
+
+                StyleItemKey key;
+                key.classID = -1;
+                key.idID = -1;
+                key.tag = NU_Token_To_Tag(token);
+                key.pseudoClass = -1;
+
+                // Regular tag item key
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)
                 {
-                    int tag = NU_Token_To_Tag(token);
-                    void* found = Hashmap_Get(&ss->tag_item_hashmap, &tag);
-
-                    // Style item exists
-                    if (found != NULL) {
-                        Stylesheet_Item* found_item = Array_Get(&ss->items, *(u32*)found);
-                        selectorIndexes[selectorCount] = *(u32*)found;
-                    }
-                    // Style item does not exist -> add one
-                    else {
-                        Stylesheet_Item new_item;
-                        new_item.class = NULL;
-                        new_item.id = NULL;
-                        new_item.tag = tag;
-                        new_item.propertyFlags = 0;
-                        Array_Push(&ss->items, &new_item);
-                        selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
-                        Hashmap_Set(&ss->tag_item_hashmap, &tag, &selectorIndexes[selectorCount]); // Store item index
-                    }
-
                     i += 1;
-                    selectorCount++;
-                    continue;
                 }
+                // Pseudo tag item key
                 else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size - 3)
                 {
                     enum NU_Style_Token following_token = TokenArray_Get(tokens, i+2);
                     enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
                     if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE))
                     {
-                        int tag = NU_Token_To_Tag(token);
-                        enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
-
-                        // Construct key
-                        struct Stylesheet_Tag_Pseudo_Pair key = { tag, pseudo_class };
-
-                        // Query hashmap
-                        void* found = Hashmap_Get(&ss->tag_pseudo_item_hashmap, &key);
-
-                        // Style item exists
-                        if (found != NULL)
-                        {
-                            Stylesheet_Item* found_item = Array_Get(&ss->items, *(u32*)found);
-                            selectorIndexes[selectorCount] = *(u32*)found;
-                        }
-                        // Style item does not exist -> add one
-                        else
-                        {
-                            Stylesheet_Item new_item;
-                            new_item.class = NULL;
-                            new_item.id = NULL;
-                            new_item.tag = tag;
-                            new_item.propertyFlags = 0;
-                            Array_Push(&ss->items, &new_item);
-                            selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
-                            Hashmap_Set(&ss->tag_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
-                        }
+                        key.pseudoClass = Token_To_Pseudo_Class(following_token);
                     }
-                    else {
-                        succeeded = 0; break;
-                    }
-
+                    else return 0;
                     i += 3;
-                    selectorCount++;
-                    continue;
                 }
-                else {
-                    succeeded = 0; break;
-                }
-            }
-            else {
-                succeeded = 0; break;
-            }
-        }
+                else return 0;
 
+                // If style item exists
+                int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &key);
+                if (itemIndex) {
+                    selectorIndexes[selectorCount] = *itemIndex;
+                }
+                // Create style item
+                else {
+                    // Create and add item
+                    StyleItem newItem;
+                    newItem.propertyFlags = 0;
+                    Array_Push(&ss->items, &newItem);
+                    selectorIndexes[selectorCount] = ss->items.size - 1;
+                    Hashmap_Set(&ss->itemIndexMap , &key, &selectorIndexes[selectorCount]);
+                }
+                selectorCount++;
+                continue; // ^
+            }
+            else return 0;
+        }
         else if (token == STYLE_CLASS_SELECTOR)
         {
             if (i < tokens->size - 1)
             {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
+
+                // Get class string
+                textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
+                char* src_class = &src[textRef->srcIndex];
+
+                StyleItemKey key;
+                key.idID = -1;
+                key.tag = -1;
+                key.pseudoClass = -1;
+
+                // If regular class selector
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)
                 {
-                    // Get class string
-                    textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
-                    char* src_class = &src[textRef->src_index];
-
-                    // Get stored class
-                    char* stored_class = LinearStringset_Get(&ss->class_string_set, src_class);
-
-                    // If style item exists
-                    void* found = Hashmap_Get(&ss->class_item_hashmap, &stored_class);
-                    if (found != NULL)
-                    {
-                        Stylesheet_Item* found_item = Array_Get(&ss->items, *(u32*)found);
-                        selectorIndexes[selectorCount] = *(u32*)found;
-                    }
-                    else // does not exist -> add item
-                    {
-                        // Add class to string set
-                        LinearStringset_Add(&ss->class_string_set, src_class);
-                        stored_class = LinearStringset_Get(&ss->class_string_set, src_class);
-
-                        // Add style item for class
-                        Stylesheet_Item new_item;
-                        new_item.class = stored_class;
-                        new_item.id = NULL;
-                        new_item.tag = -1;
-                        new_item.propertyFlags = 0;
-                        Array_Push(&ss->items, &new_item);
-                        selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
-                        Hashmap_Set(&ss->class_item_hashmap, &stored_class, &selectorIndexes[selectorCount]); // Store item index
-                    }
-
                     i += 1;
-                    selectorCount++;
-                    continue;
                 }
-                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3)
+                // If class pseudo selector
+                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size - 3)
                 {
                     enum NU_Style_Token following_token = TokenArray_Get(tokens, i+2);
                     enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
-                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE))
-                    {
-                        enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
-
-                        // Get class string
-                        textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
-                        char* src_class = &src[textRef->src_index];
-
-                        // Get stored class
-                        char* stored_class = LinearStringset_Get(&ss->class_string_set, src_class);
-
-                        if (stored_class != NULL)
-                        {
-                            // Get stored class pseudo
-                            struct Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo_class };
-                            void* found = Hashmap_Get(&ss->class_pseudo_item_hashmap, &key);
-
-                            // No pseudo item exists for this class
-                            if (found == NULL)
-                            {
-                                // Add pseudo style item
-                                Stylesheet_Item new_item;
-                                new_item.class = stored_class;
-                                new_item.id = NULL;
-                                new_item.tag = -1;
-                                new_item.propertyFlags = 0;
-                                Array_Push(&ss->items, &new_item);
-                                selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
-                                Hashmap_Set(&ss->class_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
-                            }
-                            // Item found
-                            else
-                            {
-                                Stylesheet_Item* found_item = Array_Get(&ss->items, *(u32*)found);
-                                selectorIndexes[selectorCount] = *(u32*)found;
-                            }
-                        }
+                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) {
+                        key.pseudoClass = Token_To_Pseudo_Class(following_token);
                     }
-                    else {
-                        succeeded = 0; break;
-                    }
-
+                    else return 0;
                     i += 3;
-                    selectorCount++;
-                    continue;
+                }
+                else return 0;
+
+                // Get or create class ID
+                int* classID = LinearStringmap_Get(&ss->classIdMap, src_class);
+                if (classID) {
+                    key.classID = *classID;
                 }
                 else {
-                    succeeded = 0; break;
+                    // Generate and add class ID
+                    int classID = classIdAutoIncr++;
+                    LinearStringmap_Set(&ss->classIdMap, src_class, &classID);
+                    key.classID = classID;
                 }
-            }
-            else {
-                succeeded = 0; break;
-            }
-        }
 
+                // Get or create Item
+                int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &key);
+                if (itemIndex) {
+                    selectorIndexes[selectorCount] = *itemIndex;
+                }
+                else {
+                    // Create and add item
+                    StyleItem newItem;
+                    newItem.propertyFlags = 0;
+                    Array_Push(&ss->items, &newItem);
+                    selectorIndexes[selectorCount] = ss->items.size - 1;
+                    Hashmap_Set(&ss->itemIndexMap , &key, &selectorIndexes[selectorCount]);
+                }
+                selectorCount++;
+                continue;
+            }
+            else return 0;
+        }
         else if (token == STYLE_ID_SELECTOR)
         {
             if (i < tokens->size - 1)
             {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
+
+                // Get id string
+                textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
+                char* src_id = &src[textRef->srcIndex];
+
+                StyleItemKey key;
+                key.classID = -1;
+                key.tag = -1;
+                key.pseudoClass = -1;
+
+                // If regular id selector
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)
                 {
-                    // Get id string
-                    textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
-                    char* src_id = &src[textRef->src_index];
-
-                    // Get stored id
-                    char* stored_id = LinearStringset_Get(&ss->id_string_set, src_id);
-
-                    // If style item exists
-                    void* found = Hashmap_Get(&ss->id_item_hashmap, &stored_id);
-                    if (found != NULL)
-                    {
-                        Stylesheet_Item* found_item = Array_Get(&ss->items, *(u32*)found);
-                        selectorIndexes[selectorCount] = *(u32*)found;
-                    }
-                    else // does not exist -> add item
-                    {
-                        // Add class to string set
-                        LinearStringset_Add(&ss->id_string_set, src_id);
-                        stored_id = LinearStringset_Get(&ss->id_string_set, src_id);
-
-                        // Add style item for id
-                        Stylesheet_Item new_item;
-                        new_item.class = NULL;
-                        new_item.id = stored_id;
-                        new_item.tag = -1;
-                        new_item.propertyFlags = 0;
-                        Array_Push(&ss->items, &new_item);
-                        selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
-                        Hashmap_Set(&ss->id_item_hashmap, &stored_id, &selectorIndexes[selectorCount]); // Store item index
-                        LinearStringset_Add(&ss->id_string_set, src_id);
-                    }
-
                     i += 1;
-                    selectorCount++;
-                    continue;
                 }
-                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3)
+                // If id pseudo selector
+                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size - 3)
                 {
                     enum NU_Style_Token following_token = TokenArray_Get(tokens, i+2);
                     enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
-                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE))
-                    {
-                        enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
-
-                        // Get id string
-                        textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
-                        char* src_id = &src[textRef->src_index];
-
-                        // Get stored id
-                        char* stored_id = LinearStringset_Get(&ss->id_string_set, src_id);
-
-                        if (stored_id != NULL)
-                        {
-                            // Get stored id pseudo
-                            struct Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo_class };
-                            void* found = Hashmap_Get(&ss->id_pseudo_item_hashmap, &key);
-
-                            // No pseudo item exists for this id
-                            if (found == NULL)
-                            {
-                                // Add pseudo style item
-                                Stylesheet_Item new_item;
-                                new_item.class = NULL;
-                                new_item.id = stored_id;
-                                new_item.tag = -1;
-                                new_item.propertyFlags = 0;
-                                Array_Push(&ss->items, &new_item);
-                                selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
-                                Hashmap_Set(&ss->id_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
-                            }
-                            // Item found
-                            else
-                            {
-                                Stylesheet_Item* found_item = Array_Get(&ss->items, *(u32*)found);
-                                selectorIndexes[selectorCount] = *(u32*)found;
-                            }
-                        }
+                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) {
+                        key.pseudoClass = Token_To_Pseudo_Class(following_token);
                     }
-                    else {
-                        succeeded = 0; break;
-                    }
-
+                    else return 0;
                     i += 3;
-                    selectorCount++;
-                    continue;
+                }
+                else return 0;
+
+                // Get or create id ID
+                int* idID = LinearStringmap_Get(&ss->idIdMap, src_id);
+                if (idID) {
+                    key.idID = *idID;
                 }
                 else {
-                    succeeded = 0; break;
+                    // Generate and add class ID
+                    int idID = idIdAutoIncr++;
+                    LinearStringmap_Set(&ss->idIdMap, src_id, &idID);
+                    key.idID = idID;
                 }
-            }
-            else {
-                succeeded = 0; break;
-            }
-        }
 
+                // Get or create Item
+                int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &key);
+                if (itemIndex) {
+                    selectorIndexes[selectorCount] = *itemIndex;
+                }
+                else {
+                    // Create and add item
+                    StyleItem newItem;
+                    newItem.propertyFlags = 0;
+                    Array_Push(&ss->items, &newItem);
+                    selectorIndexes[selectorCount] = ss->items.size - 1;
+                    Hashmap_Set(&ss->itemIndexMap , &key, &selectorIndexes[selectorCount]);
+                }
+                selectorCount++;
+                continue;
+            }
+            else return 0;
+        }
         else if (token == STYLE_SELECTOR_COMMA)
         {
             if (AssertSelectorCommaGrammar(tokens, i)) {
-                if (selectorCount == 64) {
-                    succeeded = 0; break;
-                }
+                if (selectorCount == 256) return 0;
                 i += 1;
                 continue;
             }
-            else {
-                succeeded = 0; break;
-            }
+            else return 0;
         }
-
         else if (NU_Is_Property_Identifier_Token(token))
         {
             // Property Identifier Assertion
@@ -1972,14 +1911,14 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
 
             // Get property / variable text ref
             textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
-            char* text = &src[textRef->src_index];
+            char* text = &src[textRef->srcIndex];
 
             // Variable property
             enum NU_Style_Token secondNextToken = TokenArray_Get(tokens, i+2);
             if (secondNextToken == STYLE_VARIABLE_PROPERTY_VALUE && (ctx == 0 || ctx == 3 || ctx == 4 || ctx == 5)) {
 
                 const char* variableName = text;
-                u16* varIndex = LinearStringmap_Get(variableMap, variableName);
+                int* varIndex = LinearStringmap_Get(variableMap, variableName);
 
                 // Error! property value not assigned
                 if (!varIndex) {
@@ -1991,21 +1930,29 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
 
                 StylesheetVariable variable = *(StylesheetVariable*) Array_Get(&ss->variables, *varIndex);
                 Stylesheet_Parse_Variable_Property(ss, token, &item, variable, imageResourceLoader);
+
+                // Add variable usage for every item in the selector list
+                for (int k=0; k<selectorCount; k++) {
+                    StylesheetVariableUsage* usage = Array_PushEmpty(variableUsages);
+                    usage->variableIndex = *varIndex;
+                    usage->itemIndex = selectorIndexes[k];
+                    usage->propertyIdentifier = token;
+                }
             }
-            // Hardcoded property
+            // Inline property
             else {
                 switch (ctx) {
                     case STYLE_PARSE_CTX_SELECTOR:
-                        Stylesheet_Parse_Property(ss, token, &item, text, textRef->char_count, imageResourceLoader);
+                        Stylesheet_Parse_Property(ss, token, &item, text, textRef->len, imageResourceLoader);
                         break;
                     case STYLE_PARSE_CTX_SCROLLBAR_SELECTOR:
                         Stylesheet_Parse_Scrollbar_Property(ss, token, text);
                         break;
                     case STYLE_PARSE_CTX_SCROLL_THUMB_SELECTOR:
-                        Stylesheet_Parse_Scroll_Thumb_Property(ss, token, text, textRef->char_count);
+                        Stylesheet_Parse_Scroll_Thumb_Property(ss, token, text, textRef->len);
                         break;
                     case STYLE_PARSE_CTX_SCROLL_TRACK_SELECTOR:
-                        Stylesheet_Parse_Scroll_Track_Property(ss, token, text, textRef->char_count);
+                        Stylesheet_Parse_Scroll_Track_Property(ss, token, text, textRef->len);
                         break;
                     default:
                         break;
@@ -2015,11 +1962,11 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             i += 3;
             continue;
         }
-
-        else {
-            i += 1; continue;
-        }
+        i += 1; continue;
     }
+
+    // Parse Screen Queries
+    if (!Stylesheet_Parse_Screen_Queries(src, tokens, ss, textRefs, variableMap, variableUsages, imageResourceLoader)) return 0;
 
     // No fonts loaded -> default load embedded font
     if (ss->fonts.size == 0) {
@@ -2035,8 +1982,8 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             NU_Font* font = Container_Get(&ss->fonts, id);
             NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
         }
-        else succeeded = 0;
+        else return 0;
     }
 
-    return succeeded;
+    return 1;
 }

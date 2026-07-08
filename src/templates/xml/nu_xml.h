@@ -52,10 +52,10 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
         case LAYOUT_DIRECTION_PROPERTY:
             if (c == 'v') {
                 currentNode->layoutFlags |= LAYOUT_VERTICAL;
-                currentNode->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_DIR;
             }
             else if (c == 'h') {
-                currentNode->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_DIR;
             }
             break;
 

@@ -24,6 +24,24 @@ bool EventWatcher(void* data, SDL_Event* event)
         NU_Draw();
     }
     // ------------------------------------------------------------------------------------
+    // --- Window moved to a different display -> re-evaluate style -----------------------
+    // ------------------------------------------------------------------------------------
+    else if (event->type == SDL_EVENT_WINDOW_DISPLAY_CHANGED)
+    {
+        SDL_Window* window = SDL_GetWindowFromID(event->window.windowID);
+        NodeP* windowNode = GetWindowNodeFromSDL_Window(&GUI.winManager, window);
+        NU_Window* win = GetNodeWindow(&GUI.winManager, windowNode);
+
+        int prevScreenWidth = win->screenWidth;
+        WindowManager_UpdateWindowRenderScale(&GUI.winManager, windowNode->windowID);
+        WindowManager_UpdateWindowScreenDimensions(&GUI.winManager, windowNode->windowID);
+
+        if (prevScreenWidth != win->screenWidth) {
+            Stylesheet_ApplyToBranch(&GUI.stylesheet, windowNode);
+            GUI.awaiting_redraw = true;
+        }
+    }
+    // ------------------------------------------------------------------------------------
     // --- App render event called -> redraw ----------------------------------------------
     // ------------------------------------------------------------------------------------
     else if (event->type == GUI.SDL_CUSTOM_RENDER_EVENT) {
@@ -104,7 +122,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             if (textChanged) {
                 TriggerOnInputChangedEvent(inputNode, "");
-                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_FOCUS);
+                Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
             }
         }
 
@@ -156,7 +174,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             if (updated) {
                 TriggerOnInputChangedEvent(GUI.focused_node, event->text.text);
-                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_FOCUS);
+                Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
             }
 
             GUI.awaiting_redraw |= updated;
@@ -302,14 +320,14 @@ bool EventWatcher(void* data, SDL_Event* event)
             TriggerOnInputDefocusEvent(prevFocusedNode);
 
             // Remove focus pseudo from prev focused node
-            NU_Apply_Stylesheet_To_Node(prevFocusedNode, &GUI.stylesheet);
+            Stylesheet_ApplyStyleToNode(&GUI.stylesheet, prevFocusedNode);
 
             GUI.awaiting_redraw = true;
         }
 
         // Apply PRESS pseudo style
         if (GUI.mouse_down_node && GUI.mouse_down_node != GUI.focused_node) {
-            NU_Apply_Pseudo_Style_To_Node(GUI.mouse_down_node, &GUI.stylesheet, PSEUDO_PRESS);
+            Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.mouse_down_node, PSEUDO_PRESS);
             GUI.awaiting_redraw = true;
         }
 
@@ -346,11 +364,11 @@ bool EventWatcher(void* data, SDL_Event* event)
 
                 // Apply psuedo HOVER
                 if (GUI.mouse_down_node == GUI.hovered_node) {
-                    NU_Apply_Pseudo_Style_To_Node(GUI.hovered_node, &GUI.stylesheet, PSEUDO_HOVER);
+                    Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.hovered_node, PSEUDO_PRESS);
                 }
                 // Reset style
                 else {
-                    NU_Apply_Stylesheet_To_Node(GUI.mouse_down_node, &GUI.stylesheet);
+                     Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.mouse_down_node);
                 }
 
                 GUI.awaiting_redraw = true;

@@ -14,25 +14,18 @@
 
 void Stylesheet_Init(Stylesheet* ss)
 {
-    Array_Init(&ss->items, sizeof(Stylesheet_Item), 512);
+    Array_Init(&ss->items, sizeof(StyleItem), 512);
     Array_Init(&ss->variables, sizeof(StylesheetVariable), 128);
-    Array_Init(&ss->variableOverrides, sizeof(StylesheetVariableOverride), 128);
-    Array_Init(&ss->variableBindings, sizeof(StylesheetVariableBinding), 1024);
     Array_Init(&ss->screenQueries, sizeof(StylesheetScreenQuery), 8);
-    LinearStringset_Init(&ss->class_string_set, 1024, 128);
-    LinearStringset_Init(&ss->id_string_set, 1024, 128);
-    Hashmap_Init(&ss->class_item_hashmap, sizeof(char*), sizeof(u32), 128);
-    Hashmap_Init(&ss->id_item_hashmap, sizeof(char*), sizeof(u32), 128);
-    Hashmap_Init(&ss->tag_item_hashmap, sizeof(int), sizeof(u32), 16);
-    Hashmap_Init(&ss->tag_pseudo_item_hashmap, sizeof(Stylesheet_Tag_Pseudo_Pair), sizeof(u32), 16);
-    Hashmap_Init(&ss->class_pseudo_item_hashmap, sizeof(Stylesheet_String_Pseudo_Pair), sizeof(u32), 16);
-    Hashmap_Init(&ss->id_pseudo_item_hashmap, sizeof(Stylesheet_String_Pseudo_Pair), sizeof(u32), 16);
-    LinearStringmap_Init(&ss->fontNameIndexMap, sizeof(int), 12, 128);
+    LinearStringmap_Init(&ss->classIdMap, sizeof(int), 256, 2048);
+    LinearStringmap_Init(&ss->idIdMap, sizeof(int), 256, 2048);
+    LinearStringmap_Init(&ss->fontNameIndexMap, sizeof(int), 12, 256);
+    Hashmap_Init(&ss->itemIndexMap, sizeof(StyleItemKey), sizeof(int), 512);
     ss->fonts = Container_Create(sizeof(NU_Font));
 
     // Create default style item
-    Stylesheet_Item* item = &ss->defaultStyleItem;
-    memset(item, 0, sizeof(Stylesheet_Item)); // zero base
+    StyleItem* item = &ss->defaultStyleItem;
+    memset(item, 0, sizeof(StyleItem)); // zero base
     item->propertyFlags = ~(uint64_t)0; // apply all properties
     item->propertyFlags &= ~PROPERTY_FLAG_IMAGE; // do not apply certain properties
     item->propertyFlags &= ~PROPERTY_FLAG_HIDDEN;
@@ -82,16 +75,10 @@ void Stylesheet_Free(Stylesheet* ss)
 {
     Array_Free(&ss->items);
     Array_Free(&ss->variables);
-    Array_Free(&ss->variableBindings);
     Array_Free(&ss->screenQueries);
-    LinearStringset_Free(&ss->class_string_set);
-    LinearStringset_Free(&ss->id_string_set);
-    Hashmap_Free(&ss->class_item_hashmap);
-    Hashmap_Free(&ss->id_item_hashmap);
-    Hashmap_Free(&ss->tag_item_hashmap);
-    Hashmap_Free(&ss->tag_pseudo_item_hashmap);
-    Hashmap_Free(&ss->class_pseudo_item_hashmap);
-    Hashmap_Free(&ss->id_pseudo_item_hashmap);
+    LinearStringmap_Free(&ss->classIdMap);
+    LinearStringmap_Free(&ss->idIdMap);
+    Hashmap_Free(&ss->itemIndexMap);
     LinearStringmap_Free(&ss->fontNameIndexMap);
     Container_Free(&ss->fonts);
 }
@@ -107,7 +94,8 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     // Init temp data structures
     TokenArray tokens = TokenArray_Create(8000);
     Array textRefs; Array_Init(&textRefs, sizeof(StyleTextRef), 2000);
-    LinearStringmap variableMap; LinearStringmap_Init(&variableMap, sizeof(u16), 128, 4096);
+    LinearStringmap variableMap; LinearStringmap_Init(&variableMap, sizeof(int), 128, 4096);
+    Array variableUsages; Array_Init(&variableUsages, sizeof(StylesheetVariableUsage), 1024);
 
     // Tokenise
     printf("tokenising css\n");
@@ -118,9 +106,11 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     // Generate stylesheet
     printf("generating css\n");
     timer_start();
-    if (!Stylesheet_Parse(StringCstr(src), &tokens, &textRefs, &variableMap, stylesheet, imageResourceLoader)) {
+    if (!Stylesheet_Parse(StringCstr(src), &tokens, &textRefs, &variableMap, &variableUsages, stylesheet, imageResourceLoader)) {
         TokenArray_Free(&tokens);
         Array_Free(&textRefs);
+        LinearStringmap_Free(&variableMap);
+        Array_Free(&variableUsages);
         StringFree(src);
         return 0;
     }
