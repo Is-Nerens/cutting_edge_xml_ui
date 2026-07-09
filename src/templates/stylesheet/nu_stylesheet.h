@@ -26,6 +26,8 @@ void Stylesheet_Init(Stylesheet* ss)
     // Create default style item (at index 0)
     StyleItem* item = Array_PushEmpty(&ss->items);
     memset(item, 0, sizeof(StyleItem)); // zero base
+    item->nextVariationIndex = -1;
+    item->screenQueryIndex = -1;
     item->propertyFlags = ~(uint64_t)0; // apply all properties
     item->propertyFlags &= ~PROPERTY_FLAG_IMAGE; // do not apply certain properties
     item->propertyFlags &= ~PROPERTY_FLAG_HIDDEN;
@@ -95,7 +97,6 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     TokenArray tokens = TokenArray_Create(8000);
     Array textRefs; Array_Init(&textRefs, sizeof(StyleTextRef), 2000);
     LinearStringmap variableMap; LinearStringmap_Init(&variableMap, sizeof(int), 128, 4096);
-    Array variableUsages; Array_Init(&variableUsages, sizeof(StylesheetVariableUsage), 1024);
 
     // Tokenise
     printf("tokenising css\n");
@@ -111,14 +112,12 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
         &tokens,
         &textRefs,
         &variableMap,
-        &variableUsages,
         stylesheet,
         imageResourceLoader)
     ) {
         TokenArray_Free(&tokens);
         Array_Free(&textRefs);
         LinearStringmap_Free(&variableMap);
-        Array_Free(&variableUsages);
         StringFree(src);
         return 0;
     }
@@ -127,7 +126,6 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     // Free memory
     TokenArray_Free(&tokens);
     Array_Free(&textRefs);
-    Array_Free(&variableUsages);
     LinearStringmap_Free(&variableMap);
     StringFree(src);
     return 1; // Success

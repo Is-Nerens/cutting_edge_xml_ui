@@ -69,7 +69,26 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, NodeP* node)
         InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
         inputText->type = item->inputType;
     }
-    node->fontId = item->fontId;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_FONT)) node->fontId = item->fontId;
+}
+
+void Stylesheet_ApplyVariations(Stylesheet* ss, StyleItem* item, NodeP* node, int screenWidth)
+{
+    for (int i=0; i<ss->screenQueries.size; i++)
+    {
+        StylesheetScreenQuery* query = Array_Get(&ss->screenQueries, i);
+        bool applies = false;
+        applies |= query->comparator == STYLE_GREATER       && screenWidth > query->screenWidth;
+        applies |= query->comparator == STYLE_LESS          && screenWidth < query->screenWidth;
+        applies |= query->comparator == STYLE_GREATER_EQUAL && screenWidth >= query->screenWidth;
+        applies |= query->comparator == STYLE_LESS_EQUAL    && screenWidth <= query->screenWidth;
+        if (item->nextVariationIndex != -1 && item->screenQueryIndex < i) {
+            item = Array_Get(&ss->items, item->nextVariationIndex);
+        }
+        if (applies && item->screenQueryIndex == i) {
+            Stylesheet_ApplyStyleItemToNode(item, node);
+        }
+    }
 }
 
 void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
@@ -97,9 +116,6 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
         .tag = -1,
         .pseudoClass = -1
     };
-    int tagItemIndex = -1;
-    int classItemIndex = -1;
-    int idItemIndex = -1;
 
     // Get the style items
     StyleItem* defaultItem = Array_Get(&ss->items, 0);
@@ -109,8 +125,7 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
 
     int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &tagItemKey);
     if (itemIndex) {
-        tagItemIndex = *itemIndex;
-        tagItem = Array_Get(&ss->items, tagItemIndex);
+        tagItem = Array_Get(&ss->items, *itemIndex);
     }
     if (node->class) {
         int* classID = LinearStringmap_Get(&ss->classIdMap, node->class);
@@ -118,8 +133,7 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
             classItemKey.classID = *classID;
             itemIndex = Hashmap_Get(&ss->itemIndexMap, &classItemKey);
             if (itemIndex) {
-                classItemIndex = *itemIndex;
-                classItem = Array_Get(&ss->items, classItemIndex);
+                classItem = Array_Get(&ss->items, *itemIndex);
             }
         }
     }
@@ -129,60 +143,25 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, NodeP* node)
             idItemKey.idID = *idID;
             itemIndex = Hashmap_Get(&ss->itemIndexMap, &idItemKey);
             if (itemIndex) {
-                idItemIndex = *itemIndex;
-                idItem = Array_Get(&ss->items, idItemIndex);
+                idItem = Array_Get(&ss->items, *itemIndex);
             }
         }
     }
 
     // Apply style items in order
     Stylesheet_ApplyStyleItemToNode(defaultItem, node);
-    if (tagItem) Stylesheet_ApplyStyleItemToNode(tagItem, node);
-    if (classItem) Stylesheet_ApplyStyleItemToNode(classItem, node);
-    if (idItem) Stylesheet_ApplyStyleItemToNode(idItem, node);
-
-    // Apply screen queries
-    for (int i=0; i<ss->screenQueries.size; i++)
-    {
-        StylesheetScreenQuery* query = Array_Get(&ss->screenQueries, i);
-
-        bool applies = false;
-        applies |= query->comparator == STYLE_GREATER       && screenWidth > query->screenWidth;
-        applies |= query->comparator == STYLE_LESS          && screenWidth < query->screenWidth;
-        applies |= query->comparator == STYLE_GREATER_EQUAL && screenWidth >= query->screenWidth;
-        applies |= query->comparator == STYLE_LESS_EQUAL    && screenWidth <= query->screenWidth;
-
-        if (applies)
-        {
-            defaultItem = NULL;
-            tagItem = NULL;
-            classItem = NULL;
-            idItem = NULL;
-
-            int defaultItemIndex = 0;
-            int* defaultQueryItemIndex = Hashmap_Get(&query->itemIndexMap, &defaultItemIndex);
-            if (defaultQueryItemIndex) {
-                defaultItem = Array_Get(&ss->items, *defaultQueryItemIndex);
-            }
-            if (tagItemIndex != -1) {
-                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &tagItemIndex);
-                if (queryItemIndex) tagItem = Array_Get(&ss->items, *queryItemIndex);
-            }
-            if (classItemIndex != -1) {
-                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &classItemIndex);
-                if (queryItemIndex) classItem = Array_Get(&ss->items, *queryItemIndex);
-            }
-            if (idItemIndex != -1) {
-                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &idItemIndex);
-                if (queryItemIndex) idItem = Array_Get(&ss->items, *queryItemIndex);
-            }
-
-            // Apply style items in order
-            if (defaultItem) Stylesheet_ApplyStyleItemToNode(defaultItem, node);
-            if (tagItem) Stylesheet_ApplyStyleItemToNode(tagItem, node);
-            if (classItem) Stylesheet_ApplyStyleItemToNode(classItem, node);
-            if (idItem) Stylesheet_ApplyStyleItemToNode(idItem, node);
-        }
+    Stylesheet_ApplyVariations(ss, defaultItem, node, screenWidth);
+    if (tagItem) {
+        Stylesheet_ApplyStyleItemToNode(tagItem, node);
+        Stylesheet_ApplyVariations(ss, tagItem, node, screenWidth);
+    }
+    if (classItem) {
+        Stylesheet_ApplyStyleItemToNode(classItem, node);
+        Stylesheet_ApplyVariations(ss, classItem, node, screenWidth);
+    }
+    if (idItem) {
+        Stylesheet_ApplyStyleItemToNode(idItem, node);
+        Stylesheet_ApplyVariations(ss, idItem, node, screenWidth);
     }
 }
 
@@ -215,10 +194,6 @@ void Stylesheet_ApplyPseudoStyleToNode(Stylesheet* ss, NodeP* node, StylePseudoC
         .pseudoClass = pseudo
     };
 
-    int tagItemIndex = -1;
-    int classItemIndex = -1;
-    int idItemIndex = -1;
-
     // Get the style items
     StyleItem* tagPseudoItem = NULL;
     StyleItem* classPseudoItem = NULL;
@@ -226,8 +201,7 @@ void Stylesheet_ApplyPseudoStyleToNode(Stylesheet* ss, NodeP* node, StylePseudoC
 
     int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &tagItemKey);
     if (itemIndex) {
-        tagItemIndex = *itemIndex;
-        tagPseudoItem = Array_Get(&ss->items, tagItemIndex);
+        tagPseudoItem = Array_Get(&ss->items, *itemIndex);
     }
     if (node->class) {
         int* classID = LinearStringmap_Get(&ss->classIdMap, node->class);
@@ -235,8 +209,7 @@ void Stylesheet_ApplyPseudoStyleToNode(Stylesheet* ss, NodeP* node, StylePseudoC
             classItemKey.classID = *classID;
             itemIndex = Hashmap_Get(&ss->itemIndexMap, &classItemKey);
             if (itemIndex) {
-                classItemIndex = *itemIndex;
-                classPseudoItem = Array_Get(&ss->items, classItemIndex);
+                classPseudoItem = Array_Get(&ss->items, *itemIndex);
             }
         }
     }
@@ -246,52 +219,23 @@ void Stylesheet_ApplyPseudoStyleToNode(Stylesheet* ss, NodeP* node, StylePseudoC
             idItemKey.idID = *idID;
             itemIndex = Hashmap_Get(&ss->itemIndexMap, &idItemKey);
             if (itemIndex) {
-                idItemIndex = *itemIndex;
-                idPseudoItem = Array_Get(&ss->items, idItemIndex);
+                idPseudoItem = Array_Get(&ss->items, *itemIndex);
             }
         }
     }
 
-    // Apply style items in order
-    if (tagPseudoItem) Stylesheet_ApplyStyleItemToNode(tagPseudoItem, node);
-    if (classPseudoItem) Stylesheet_ApplyStyleItemToNode(classPseudoItem, node);
-    if (idPseudoItem) Stylesheet_ApplyStyleItemToNode(idPseudoItem, node);
-
-    // Apply screen queries
-    for (int i=0; i<ss->screenQueries.size; i++)
-    {
-        StylesheetScreenQuery* query = Array_Get(&ss->screenQueries, i);
-
-        bool applies = false;
-        applies |= query->comparator == STYLE_GREATER       && screenWidth > query->screenWidth;
-        applies |= query->comparator == STYLE_LESS          && screenWidth < query->screenWidth;
-        applies |= query->comparator == STYLE_GREATER_EQUAL && screenWidth >= query->screenWidth;
-        applies |= query->comparator == STYLE_LESS_EQUAL    && screenWidth <= query->screenWidth;
-
-        if (applies)
-        {
-            StyleItem* tagItem = NULL;
-            StyleItem* classItem = NULL;
-            StyleItem* idItem = NULL;
-
-            if (tagItemIndex != -1) {
-                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &tagItemIndex);
-                if (queryItemIndex) tagItem = Array_Get(&ss->items, *queryItemIndex);
-            }
-            if (classItemIndex != -1) {
-                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &classItemIndex);
-                if (queryItemIndex) classItem = Array_Get(&ss->items, *queryItemIndex);
-            }
-            if (idItemIndex != -1) {
-                int* queryItemIndex = Hashmap_Get(&query->itemIndexMap, &idItemIndex);
-                if (queryItemIndex) idItem = Array_Get(&ss->items, *queryItemIndex);
-            }
-
-            // Apply style items in order
-            if (tagItem) Stylesheet_ApplyStyleItemToNode(tagItem, node);
-            if (classItem) Stylesheet_ApplyStyleItemToNode(classItem, node);
-            if (idItem) Stylesheet_ApplyStyleItemToNode(idItem, node);
-        }
+    // Apply pseudo style items in order
+    if (tagPseudoItem) {
+        Stylesheet_ApplyStyleItemToNode(tagPseudoItem, node);
+        Stylesheet_ApplyVariations(ss, tagPseudoItem, node, screenWidth);
+    }
+    if (classPseudoItem) {
+        Stylesheet_ApplyStyleItemToNode(classPseudoItem, node);
+        Stylesheet_ApplyVariations(ss, classPseudoItem, node, screenWidth);
+    }
+    if (idPseudoItem) {
+        Stylesheet_ApplyStyleItemToNode(idPseudoItem, node);
+        Stylesheet_ApplyVariations(ss, idPseudoItem, node, screenWidth);
     }
 }
 

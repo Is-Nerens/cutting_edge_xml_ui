@@ -12,10 +12,12 @@ typedef struct ErrorSystem {
 
 void ErrorSystem_Init(ErrorSystem* errorSys)
 {
-    errorSys->buffer = malloc(512);
+    errorSys->bufferSize = 512;
+    errorSys->buffer = malloc(errorSys->bufferSize);
     errorSys->errorMessageCount = 0;
     errorSys->readHead = 0;
     errorSys->writeHead = 0;
+    errorSys->droppedMessageCount = 0;
 }
 
 void ErrorSystem_Free(ErrorSystem* errorSys)
@@ -52,22 +54,23 @@ const char* ErrorSystem_GetNextError(ErrorSystem* errorSys)
 {
     static char nMoreBuf[32];
 
+    // If there were dropped messages
+    if (errorSys->droppedMessageCount > 0) {
+        u32 n = errorSys->droppedMessageCount;
+        errorSys->droppedMessageCount = 0; // Reset after reporting
+        snprintf(nMoreBuf, sizeof(nMoreBuf), "%u more", n);
+        return nMoreBuf;
+    }
+
+    // If there are no more messages
     if (errorSys->readHead >= errorSys->writeHead) {
-        if (errorSys->droppedMessageCount > 0) {
-            u32 n = errorSys->droppedMessageCount;
-            errorSys->readHead = 0;
-            errorSys->writeHead = 0;
-            errorSys->errorMessageCount = 0;
-            errorSys->droppedMessageCount = 0;
-            snprintf(nMoreBuf, sizeof(nMoreBuf), "%u more", n);
-            return nMoreBuf;
-        }
         errorSys->readHead = 0;
         errorSys->writeHead = 0;
         errorSys->errorMessageCount = 0;
         return NULL;
     }
 
+    // Return next message
     u16 advance;
     memcpy(&advance, errorSys->buffer + errorSys->readHead, sizeof(u16));
     const char* err = errorSys->buffer + errorSys->readHead + sizeof(u16);

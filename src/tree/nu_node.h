@@ -58,7 +58,7 @@
 #define PROPERTY_FLAG_PAD_RIGHT         (1ULL << 37)
 #define PROPERTY_FLAG_IMAGE             (1ULL << 38)
 #define PROPERTY_FLAG_INPUT_TYPE        (1ULL << 39)
-
+#define PROPERTY_FLAG_FONT              (1ULL << 40)
 
 #define NODEP_OF(ptr) ((NodeP *)((char *)(ptr) - offsetof(NodeP, node)))
 

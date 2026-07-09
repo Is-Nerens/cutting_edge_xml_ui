@@ -11,6 +11,8 @@ typedef struct StyleItemKey {
 typedef struct StyleItem
 {
     u64 propertyFlags;
+    int nextVariationIndex;
+    int screenQueryIndex;
     int imageHandle;
     u16 prefWidth, prefHeight;
     u16 minWidth, maxWidth, minHeight, maxHeight;
@@ -55,30 +57,13 @@ typedef enum StylesheetVariableDtype
 typedef struct StylesheetVariable
 {
     enum StylesheetVariableDtype type;
-    enum StylesheetVariableDtype type_DEFAULT;
-    int value_DEFAULT;
     int value;
+    int nextVariationIndex;
+    int screenQueryIndex;
 } StylesheetVariable;
-
-typedef struct StylesheetVariableOverride
-{
-    int variableIndex;
-    enum StylesheetVariableDtype type;
-    int value;
-} StylesheetVariableOverride;
-
-typedef struct StylesheetVariableUsage
-{
-    int itemIndex;
-    int permutedItemIndex;
-    int variableIndex;
-    enum NU_Style_Token propertyIdentifier;
-} StylesheetVariableUsage;
 
 typedef struct StylesheetScreenQuery
 {
-    Hashmap itemIndexMap;
-    StyleItem defaultStyleItem;
     enum NU_Style_Token comparator;
     int screenWidth;
 } StylesheetScreenQuery;

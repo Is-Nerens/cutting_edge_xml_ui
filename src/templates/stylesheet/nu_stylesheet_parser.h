@@ -73,11 +73,13 @@ void Stylesheet_OverwriteStyleItem(StyleItem* item, StyleItem* overwriter)
     item->inputType   = item->inputType   * !(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE) + overwriter->inputType   * !!(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE);
 
     // Overwrite font Id
-    item->fontId = overwriter->fontId;
+    item->fontId = item->fontId * !(overwriter->propertyFlags & PROPERTY_FLAG_FONT) + overwriter->fontId  * !!(overwriter->propertyFlags & PROPERTY_FLAG_FONT);
 }
 
-void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, StyleItem* item, const char* text, int textLen, ImageResourceLoader* imageResourceLoader)
+u64 Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, StyleItem* item, const char* text, int textLen, ImageResourceLoader* imageResourceLoader)
 {
+    u64 propertyFlagsSet = 0;
+
     switch (token)
     {
         // Set layout direction
@@ -86,10 +88,10 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
             {
                 case 'v':
                     item->layoutFlags |= LAYOUT_VERTICAL;
-                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_DIR; break;
+                    propertyFlagsSet |= PROPERTY_FLAG_LAYOUT_DIR; break;
                     break;
                 case 'h':
-                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_DIR; break;
+                    propertyFlagsSet |= PROPERTY_FLAG_LAYOUT_DIR; break;
             }
             break;
 
@@ -101,7 +103,7 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
                 case 'h': item->layoutFlags |= GROW_HORIZONTAL; break;
                 case 'b': item->layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL); break;
             }
-            item->propertyFlags |= PROPERTY_FLAG_GROW;
+            propertyFlagsSet |= PROPERTY_FLAG_GROW;
             break;
 
         // Set overflow behaviour
@@ -110,9 +112,9 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
             {
                 case 's':
                     item->layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
-                    item->propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL; break;
+                    propertyFlagsSet |= PROPERTY_FLAG_VERTICAL_SCROLL; break;
                 case 'h':
-                    item->propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL; break;
+                    propertyFlagsSet |= PROPERTY_FLAG_VERTICAL_SCROLL; break;
             }
             break;
 
@@ -121,9 +123,9 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
             {
                 case 's':
                     item->layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
-                    item->propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL; break;
+                    propertyFlagsSet |= PROPERTY_FLAG_HORIZONTAL_SCROLL; break;
                 case 'h':
-                    item->propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL; break;
+                    propertyFlagsSet |= PROPERTY_FLAG_HORIZONTAL_SCROLL; break;
             }
             break;
 
@@ -131,9 +133,9 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
         case STYLE_POSITION_PROPERTY:
             if (strcmp(text, "absolute") == 0) {
                 item->layoutFlags |= POSITION_ABSOLUTE;
-                item->propertyFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
+                propertyFlagsSet |= PROPERTY_FLAG_POSITION_ABSOLUTE;
             } else if (strcmp(text, "relative") == 0) {
-                item->propertyFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
+                propertyFlagsSet |= PROPERTY_FLAG_POSITION_ABSOLUTE;
             }
             break;
 
@@ -141,10 +143,10 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
         case STYLE_HIDE_PROPERTY:
             if (strcmp(text, "true") == 0) {
                 item->layoutFlags |= HIDDEN;
-                item->propertyFlags |= PROPERTY_FLAG_HIDDEN;
+                propertyFlagsSet |= PROPERTY_FLAG_HIDDEN;
             }
             else if (strcmp(text, "false") == 0) {
-                item->propertyFlags |= PROPERTY_FLAG_HIDDEN;
+                propertyFlagsSet |= PROPERTY_FLAG_HIDDEN;
             }
             break;
 
@@ -152,61 +154,61 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
         case STYLE_IGNORE_MOUSE_PROPERTY:
             if (strcmp(text, "true") == 0) {
                 item->layoutFlags |= IGNORE_MOUSE;
-                item->propertyFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
+                propertyFlagsSet |= PROPERTY_FLAG_IGNORE_MOUSE;
             }
             else if (strcmp(text, "false") == 0) {
-                item->propertyFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
+                propertyFlagsSet |= PROPERTY_FLAG_IGNORE_MOUSE;
             }
             break;
 
         // Set gap
         case STYLE_GAP_PROPERTY:
-            item->propertyFlags |= (PROPERTY_FLAG_GAP * String_To_u8(&item->gap, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_GAP * String_To_u8(&item->gap, text));
             break;
 
         // Set preferred width
         case STYLE_WIDTH_PROPERTY:
-            item->propertyFlags |= (PROPERTY_FLAG_PREFERRED_WIDTH * String_To_Uint16(&item->prefWidth, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_PREFERRED_WIDTH * String_To_Uint16(&item->prefWidth, text));
             break;
 
         // Set min width
         case STYLE_MIN_WIDTH_PROPERTY:
-            item->propertyFlags |= (PROPERTY_FLAG_MIN_WIDTH * String_To_Uint16(&item->minWidth, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_MIN_WIDTH * String_To_Uint16(&item->minWidth, text));
             break;
 
         // Set max width
         case STYLE_MAX_WIDTH_PROPERTY:
-            item->propertyFlags |= (PROPERTY_FLAG_MAX_WIDTH * String_To_Uint16(&item->maxWidth, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_MAX_WIDTH * String_To_Uint16(&item->maxWidth, text));
             break;
 
         // Set preferred height
         case STYLE_HEIGHT_PROPERTY:
-            item->propertyFlags |= (PROPERTY_FLAG_PREFERRED_HEIGHT * String_To_Uint16(&item->prefHeight, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_PREFERRED_HEIGHT * String_To_Uint16(&item->prefHeight, text));
             break;
 
         // Set min height
         case STYLE_MIN_HEIGHT_PROPERTY:
-            item->propertyFlags |= (PROPERTY_FLAG_MIN_HEIGHT * String_To_Uint16(&item->minHeight, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_MIN_HEIGHT * String_To_Uint16(&item->minHeight, text));
             break;
 
         // Set max height
         case STYLE_MAX_HEIGHT_PROPERTY:
-            item->propertyFlags |= (PROPERTY_FLAG_MAX_HEIGHT * String_To_Uint16(&item->maxHeight, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_MAX_HEIGHT * String_To_Uint16(&item->maxHeight, text));
             break;
 
         // Set horizontal alignment
         case STYLE_ALIGN_H_PROPERTY:
             if (strcmp(text, "left") == 0) {
                 item->horizontalAlignment = 0;
-                item->propertyFlags |= PROPERTY_FLAG_ALIGN_H;
+                propertyFlagsSet |= PROPERTY_FLAG_ALIGN_H;
             }
             else if (strcmp(text, "center") == 0) {
                 item->horizontalAlignment = 1;
-                item->propertyFlags |= PROPERTY_FLAG_ALIGN_H;
+                propertyFlagsSet |= PROPERTY_FLAG_ALIGN_H;
             }
             else if (strcmp(text, "right") == 0) {
                 item->horizontalAlignment = 2;
-                item->propertyFlags |= PROPERTY_FLAG_ALIGN_H;
+                propertyFlagsSet |= PROPERTY_FLAG_ALIGN_H;
             }
             break;
 
@@ -214,15 +216,15 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
         case STYLE_ALIGN_V_PROPERTY:
             if (strcmp(text, "top") == 0) {
                 item->verticalAlignment = 0;
-                item->propertyFlags |= PROPERTY_FLAG_ALIGN_V;
+                propertyFlagsSet |= PROPERTY_FLAG_ALIGN_V;
             }
             else if (strcmp(text, "center") == 0) {
                 item->verticalAlignment = 1;
-                item->propertyFlags |= PROPERTY_FLAG_ALIGN_V;
+                propertyFlagsSet |= PROPERTY_FLAG_ALIGN_V;
             }
             else if (strcmp(text, "bottom") == 0) {
                 item->verticalAlignment = 2;
-                item->propertyFlags |= PROPERTY_FLAG_ALIGN_V;
+                propertyFlagsSet |= PROPERTY_FLAG_ALIGN_V;
             }
             break;
 
@@ -230,15 +232,15 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
         case STYLE_TEXT_ALIGN_H_PROPERTY:
             if (strcmp(text, "left") == 0) {
                 item->horizontalTextAlignment = 0;
-                item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
+                propertyFlagsSet |= PROPERTY_FLAG_TEXT_ALIGN_H;
             }
             else if (strcmp(text, "center") == 0) {
                 item->horizontalTextAlignment = 1;
-                item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
+                propertyFlagsSet |= PROPERTY_FLAG_TEXT_ALIGN_H;
             }
             else if (strcmp(text, "right") == 0) {
                 item->horizontalTextAlignment = 2;
-                item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
+                propertyFlagsSet |= PROPERTY_FLAG_TEXT_ALIGN_H;
             }
             break;
 
@@ -246,33 +248,33 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
         case STYLE_TEXT_ALIGN_V_PROPERTY:
             if (strcmp(text, "top") == 0) {
                 item->verticalTextAlignment = 0;
-                item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
+                propertyFlagsSet |= PROPERTY_FLAG_TEXT_ALIGN_V;
             }
             else if (strcmp(text, "center") == 0) {
                 item->verticalTextAlignment = 1;
-                item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
+                propertyFlagsSet |= PROPERTY_FLAG_TEXT_ALIGN_V;
             }
             else if (strcmp(text, "bottom") == 0) {
                 item->verticalTextAlignment = 2;
-                item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
+                propertyFlagsSet |= PROPERTY_FLAG_TEXT_ALIGN_V;
             }
             break;
 
         // Set absolute position properties
         case STYLE_LEFT_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_LEFT * String_To_Int16(&item->left, text);
+            propertyFlagsSet |= PROPERTY_FLAG_LEFT * String_To_Int16(&item->left, text);
             break;
 
         case STYLE_RIGHT_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_RIGHT * String_To_Int16(&item->right, text);
+            propertyFlagsSet |= PROPERTY_FLAG_RIGHT * String_To_Int16(&item->right, text);
             break;
 
         case STYLE_TOP_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_TOP * String_To_Int16(&item->top, text);
+            propertyFlagsSet |= PROPERTY_FLAG_TOP * String_To_Int16(&item->top, text);
             break;
 
         case STYLE_BOTTOM_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_BOTTOM * String_To_Int16(&item->bottom, text);
+            propertyFlagsSet |= PROPERTY_FLAG_BOTTOM * String_To_Int16(&item->bottom, text);
             break;
 
         // Set background colour
@@ -282,9 +284,9 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
                 item->backgroundR = rgb.r;
                 item->backgroundG = rgb.g;
                 item->backgroundB = rgb.b;
-                item->propertyFlags |= PROPERTY_FLAG_BACKGROUND;
+                propertyFlagsSet |= PROPERTY_FLAG_BACKGROUND;
             } else if (strcmp(text, "none") == 0) {
-                item->propertyFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
+                propertyFlagsSet |= PROPERTY_FLAG_HIDE_BACKGROUND;
                 item->layoutFlags |= HIDE_BACKGROUND;
             }
             break;
@@ -297,7 +299,7 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
                 item->borderR = rgb.r;
                 item->borderG = rgb.g;
                 item->borderB = rgb.b;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_COLOUR;
+                propertyFlagsSet |= PROPERTY_FLAG_BORDER_COLOUR;
             }
             break;
         }
@@ -309,7 +311,7 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
                 item->textR = rgb.r;
                 item->textG = rgb.g;
                 item->textB = rgb.b;
-                item->propertyFlags |= PROPERTY_FLAG_TEXT_COLOUR;
+                propertyFlagsSet |= PROPERTY_FLAG_TEXT_COLOUR;
             }
             break;
         }
@@ -322,28 +324,28 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
                 item->borderBottom = border_width;
                 item->borderLeft = border_width;
                 item->borderRight = border_width;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_TOP;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_LEFT;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT;
+                propertyFlagsSet |= PROPERTY_FLAG_BORDER_TOP;
+                propertyFlagsSet |= PROPERTY_FLAG_BORDER_BOTTOM;
+                propertyFlagsSet |= PROPERTY_FLAG_BORDER_LEFT;
+                propertyFlagsSet |= PROPERTY_FLAG_BORDER_RIGHT;
             }
             break;
         }
 
         case STYLE_BORDER_TOP_WIDTH_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_BORDER_TOP * String_To_u8(&item->borderTop, text);
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_TOP * String_To_u8(&item->borderTop, text);
             break;
 
         case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_BORDER_BOTTOM * String_To_u8(&item->borderBottom, text);
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_BOTTOM * String_To_u8(&item->borderBottom, text);
             break;
 
         case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_BORDER_LEFT * String_To_u8(&item->borderLeft, text);
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_LEFT * String_To_u8(&item->borderLeft, text);
             break;
 
         case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT * String_To_u8(&item->borderRight, text);
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_RIGHT * String_To_u8(&item->borderRight, text);
             break;
 
         // Set border radii
@@ -354,31 +356,31 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
                 item->borderRadiusTr = border_radius;
                 item->borderRadiusBl = border_radius;
                 item->borderRadiusBr = border_radius;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
+                propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_TL;
+                propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_TR;
+                propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_BL;
+                propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_BR;
             }
             break;
         }
 
         case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL *
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_TL *
                 String_To_u8(&item->borderRadiusTl, text);
             break;
 
         case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR *
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_TR *
                 String_To_u8(&item->borderRadiusTr, text);
             break;
 
         case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL *
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_BL *
                 String_To_u8(&item->borderRadiusBl, text);
             break;
 
         case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR *
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_BR *
                 String_To_u8(&item->borderRadiusBr, text);
             break;
 
@@ -390,31 +392,31 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
                 item->padBottom = pad;
                 item->padLeft = pad;
                 item->padRight = pad;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_TOP;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_BOTTOM;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_LEFT;
-                item->propertyFlags |= PROPERTY_FLAG_PAD_RIGHT;
+                propertyFlagsSet |= PROPERTY_FLAG_PAD_TOP;
+                propertyFlagsSet |= PROPERTY_FLAG_PAD_BOTTOM;
+                propertyFlagsSet |= PROPERTY_FLAG_PAD_LEFT;
+                propertyFlagsSet |= PROPERTY_FLAG_PAD_RIGHT;
             }
             break;
         }
 
         case STYLE_PADDING_TOP_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_PAD_TOP *
+            propertyFlagsSet |= PROPERTY_FLAG_PAD_TOP *
                 String_To_u8(&item->padTop, text);
             break;
 
         case STYLE_PADDING_BOTTOM_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_PAD_BOTTOM *
+            propertyFlagsSet |= PROPERTY_FLAG_PAD_BOTTOM *
                 String_To_u8(&item->padBottom, text);
             break;
 
         case STYLE_PADDING_LEFT_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_PAD_LEFT *
+            propertyFlagsSet |= PROPERTY_FLAG_PAD_LEFT *
                 String_To_u8(&item->padLeft, text);
             break;
 
         case STYLE_PADDING_RIGHT_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_PAD_RIGHT *
+            propertyFlagsSet |= PROPERTY_FLAG_PAD_RIGHT *
                 String_To_u8(&item->padRight, text);
             break;
 
@@ -425,25 +427,26 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
             if (imageHandle == 0) {
                 imageHandle = ImageResourceLoader_LoadImage(imageResourceLoader, text);
                 item->imageHandle = imageHandle;
-                item->propertyFlags |= PROPERTY_FLAG_IMAGE;
+                propertyFlagsSet |= PROPERTY_FLAG_IMAGE;
             }
             else {
                 item->imageHandle = imageHandle;
-                item->propertyFlags |= PROPERTY_FLAG_IMAGE;
+                propertyFlagsSet |= PROPERTY_FLAG_IMAGE;
             }
             break;
         }
 
         case STYLE_FONT_PROPERTY: {
-            void* found_font = LinearStringmap_Get(&ss->fontNameIndexMap, text);
-            if (found_font != NULL) {
-                item->fontId = *(u8*)found_font;
+            void* foundFont = LinearStringmap_Get(&ss->fontNameIndexMap, text);
+            if (foundFont) {
+                item->fontId = *(u8*)foundFont;
+                propertyFlagsSet |= PROPERTY_FLAG_FONT;
             }
             break;
         }
 
         case STYLE_INPUT_TYPE_PROPERTY:
-            item->propertyFlags |= PROPERTY_FLAG_INPUT_TYPE;
+            propertyFlagsSet |= PROPERTY_FLAG_INPUT_TYPE;
             if (strcmp(text, "number") == 0) {
                 item->inputType = 1;
             } else {
@@ -454,9 +457,12 @@ void Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, 
         default:
             break;
     }
+
+    item->propertyFlags |= propertyFlagsSet;
+    return propertyFlagsSet;
 }
 
-void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Token token, StyleItem* item, StylesheetVariable variable, ImageResourceLoader* imageResourceLoader)
+void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Token token, StyleItem* item, StylesheetVariable variable)
 {
     switch (token)
     {
@@ -886,6 +892,7 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
         case STYLE_FONT_PROPERTY: {
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
                 item->fontId = variable.value;
+                item->propertyFlags |= PROPERTY_FLAG_FONT;
             }
             break;
         }
@@ -1018,7 +1025,6 @@ void Stylesheet_Parse_Variable(Stylesheet* ss, const char* text, int textLen, in
         if (foundFont) {
             *valueOut = *(u8*)foundFont;
             *typeOut = STYLESHEET_VARIABLE_DTYPE_NUMBER;
-            printf("variable assigned to font id: :%d\n", (int)(*valueOut));
         }
         else {
             *valueOut = 0;
@@ -1056,13 +1062,12 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
                 char* varName = &src[varNameTextRef->srcIndex];
                 char* valText = &src[valTextRef->srcIndex];
 
-                // Try to parse variable init value (store bytes as an int and infer type)
+                // Try to parse variable
                 StylesheetVariable newVar;
                 newVar.type = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
                 newVar.value = 0;
+                newVar.nextVariationIndex = -1;
                 Stylesheet_Parse_Variable(ss, valText, valTextRef->len, &newVar.value, &newVar.type);
-                newVar.value_DEFAULT = newVar.value;
-                newVar.type_DEFAULT = newVar.type;
 
                 // Variable exists -> overwrite value
                 int* existingVarIndex = LinearStringmap_Get(variableMap, varName);
@@ -1089,10 +1094,9 @@ static int Stylesheet_Parse_Variables(char* src, TokenArray* tokens, Stylesheet*
     return 1;
 }
 
-static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Stylesheet* ss, Array* textRefs, LinearStringmap* variableMap, Array* variableUsages, ImageResourceLoader* imageResourceLoader)
+static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Stylesheet* ss, Array* textRefs, LinearStringmap* variableMap)
 {
     StylesheetScreenQuery* screenQuery = NULL;
-    Array variableOverrides; Array_Init(&variableOverrides, sizeof(StylesheetVariableOverride), 128);
     int inScreenQuerySelector = 0;
     int i = 0;
 
@@ -1115,15 +1119,12 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
 
                 // Add screen query
                 screenQuery = Array_PushEmpty(&ss->screenQueries);
-                Hashmap_Init(&screenQuery->itemIndexMap, sizeof(int), sizeof(int), 256);
-                screenQuery->defaultStyleItem = *(StyleItem*)Array_Get(&ss->items, 0); // Copy
                 screenQuery->screenWidth = screenWidth;
                 screenQuery->comparator = comparatorToken;
             }
             else {
                 char errMessage[128];
                 snprintf(errMessage, sizeof(errMessage), "<CSS Error> Expected screen width (int), got \"%s\" ','", text);
-                Array_Free(&variableOverrides);
                 return 0;
             }
 
@@ -1147,83 +1148,50 @@ static int Stylesheet_Parse_Screen_Queries(char* src, TokenArray* tokens, Styles
 
                 // Get existing variable index
                 int* existingVarIndex = LinearStringmap_Get(variableMap, varName);
-                if (existingVarIndex) {
+                if (existingVarIndex)
+                {
+                    int screenQueryIndex = ss->screenQueries.size - 1;
                     StylesheetVariable* variable = Array_Get(&ss->variables, *existingVarIndex);
 
-                    // Try parse variable override, and add to array
-                    StylesheetVariableOverride* varOverride = Array_PushEmpty(&variableOverrides);
-                    Stylesheet_Parse_Variable(ss, valText, valTextRef->len, &varOverride->value, &varOverride->type);
-                    varOverride->variableIndex = *existingVarIndex;
+                    // Walk to the end of the variable chain
+                    while (variable->nextVariationIndex != -1) {
+                        variable = Array_Get(&ss->variables, variable->nextVariationIndex);
+                    }
+
+                    // Variable variation appeared previously in this @screen -> overwrite it
+                    if (variable->screenQueryIndex == screenQueryIndex) {
+                        Stylesheet_Parse_Variable(ss, valText, valTextRef->len, &variable->value, &variable->type);
+                    }
+                    // Create new variable variation
+                    else {
+                        // Parse property into variable
+                        StylesheetVariable newVar;
+                        newVar.type = STYLESHEET_VARIABLE_DTYPE_UNKNOWN;
+                        newVar.value = 0;
+                        newVar.nextVariationIndex = -1;
+                        newVar.screenQueryIndex = screenQueryIndex;
+                        Stylesheet_Parse_Variable(ss, valText, valTextRef->len, &newVar.value, &newVar.type);
+
+                        // Add new variable to the variation chain
+                        Array_Push(&ss->variables, &newVar);
+                        int newVarIndex = ss->variables.size - 1;
+                        variable->nextVariationIndex = newVarIndex;
+                    }
                 }
                 // Variable not initialised (not found in @var) -> error
                 else {
                     char errMessage[128];
                     snprintf(errMessage, sizeof(errMessage), "<CSS Error> Variable \"%s\" uninitialised! Add this variable to @var','", varName);
-                    Array_Free(&variableOverrides);
                     return 0;
                 }
             }
             i += 3; continue; // ^
         }
-        else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
-
-            // Modify all stylesheet variables in-place with overrides
-            for (int vo=0; vo<variableOverrides.size; vo++) {
-                StylesheetVariableOverride* varOverride = Array_Get(&variableOverrides, vo);
-                StylesheetVariable* variable = Array_Get(&ss->variables, varOverride->variableIndex);
-                variable->value = varOverride->value;
-                variable->type = varOverride->type;
-            }
-
-            // Duplicate all style items that have modified variables
-            for (int u=0; u<variableUsages->size; u++)
-            {
-                StylesheetVariableUsage* usage = Array_Get(variableUsages, u);
-                StylesheetVariable* variable = Array_Get(&ss->variables, usage->variableIndex);
-
-                // If variable was modified (overridden by @screen)
-                if (variable->value != variable->value_DEFAULT || variable->type != variable->type_DEFAULT) {
-
-                    int* itemPermutationIndex = Hashmap_Get(&screenQuery->itemIndexMap, &usage->itemIndex);
-                    StyleItem* itemPermutation = NULL;
-
-                    // Create permuted item if it doesn't exist
-                    if (!itemPermutationIndex)
-                    {
-                        // Get existing style item
-                        StyleItem* existingItem = Array_Get(&ss->items, usage->itemIndex);
-
-                        // Create style item permutation of existing style item
-                        itemPermutation = Array_PushEmpty(&ss->items);
-                        *itemPermutation = *existingItem; // copy
-                        itemPermutation->propertyFlags = 0;
-                        usage->permutedItemIndex = ss->items.size - 1;
-
-                        // Add mapping to permuted item to screen query hashmap (map base item -> index of permuted item)
-                        Hashmap_Set(&screenQuery->itemIndexMap, &usage->itemIndex, &usage->permutedItemIndex);
-                    }
-                    else {
-                        itemPermutation = Array_Get(&ss->items, *itemPermutationIndex);
-                    }
-
-                    // Apply (now modified) variable to style item
-                    Stylesheet_Parse_Variable_Property(ss, usage->propertyIdentifier, itemPermutation, *variable, imageResourceLoader);
-                }
-            }
-
-            // Reset modified variable values to their defaults (for the next @screen)
-            for (int va=0; va<ss->variables.size; va++) {
-                StylesheetVariable* variable = Array_Get(&ss->variables, va);
-                variable->value = variable->value_DEFAULT;
-                variable->type = variable->type_DEFAULT;
-            }
-
-            inScreenQuerySelector = 0;
+        else if (token == STYLE_SELECTOR_CLOSE_BRACE)  {
+            inScreenQuerySelector = 0; // Exit @var selector
         }
         i += 1;
     }
-
-    Array_Free(&variableOverrides);
     return 1;
 }
 
@@ -1356,68 +1324,6 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
     for (int i=0; i<ss->fonts.size; i++) {
         NU_Font* font = Container_GetAt(&ss->fonts, i);
         NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
-    }
-
-    return 1;
-}
-
-static int Stylesheet_Parse_Default(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Array* variableUsages, Stylesheet* ss, ImageResourceLoader* imageResourceLoader)
-{
-    int inDefaultSelector = 0;
-    int i = 0;
-
-    while(i < tokens->size)
-    {
-        const enum NU_Style_Token token = TokenArray_Get(tokens, i);
-
-        if (token == STYLE_DEFAULT_SELECTOR)
-        {
-            if (!AssertDefaultSelectorGrammar(tokens, i)) return 0; // Enter @default selector
-            inDefaultSelector = 1;
-        }
-        else if (NU_Is_Property_Identifier_Token(token) && inDefaultSelector)
-        {
-            if (!AssertPropertyIdentifierGrammar(tokens, i)) return 0;
-
-            // Use binary search to find the corresponding property text
-            StyleTextRef* textRef = BinarySearchTextRef(textRefs, i+2);
-
-            // Variable property
-            enum NU_Style_Token secondNextToken = TokenArray_Get(tokens, i+2);
-            if (secondNextToken == STYLE_VARIABLE_PROPERTY_VALUE) {
-
-                char* variableName = &src[textRef->srcIndex];
-                int* variableIndex = LinearStringmap_Get(variableMap, variableName);
-
-                // Error! variable not found
-                if (!variableIndex) {
-                    char errMessage[128];
-                    snprintf(errMessage, sizeof(errMessage), "<CSS Error> Variable \"%s\" is undefined", variableName);
-                    ErrorSystem_AddError(&GUI.errorSystem, errMessage);
-                    return 0;
-                }
-
-                StylesheetVariable variable = *(StylesheetVariable*) Array_Get(&ss->variables, *variableIndex);
-                StyleItem* defaultStyleItem = Array_Get(&ss->items, 0);
-                Stylesheet_Parse_Variable_Property(ss, token, defaultStyleItem, variable, imageResourceLoader);
-
-                // Add a variable usage for @default item (index 0)
-                StylesheetVariableUsage* usage = Array_PushEmpty(variableUsages);
-                usage->variableIndex = *variableIndex;
-                usage->itemIndex = 0;
-                usage->propertyIdentifier = token;
-            }
-            // If text ref -> parse property
-            else if (textRef) {
-                char* text = &src[textRef->srcIndex];
-                StyleItem* defaultStyleItem = Array_Get(&ss->items, 0);
-                Stylesheet_Parse_Property(ss, token, defaultStyleItem, text, textRef->len, imageResourceLoader);
-            }
-
-            i += 3; continue;
-        }
-        else if (token == STYLE_SELECTOR_CLOSE_BRACE) inDefaultSelector = 0; // Exit @default selector
-        i += 1;
     }
 
     return 1;
@@ -1603,6 +1509,50 @@ void Stylesheet_Parse_Scroll_Track_Property(Stylesheet* ss, const enum NU_Style_
     }
 }
 
+StyleItem* Stylesheet_FindOrCreateItemVariant(Stylesheet* ss, StyleItem* baseItem, int screenQueryIndex)
+{
+    StyleItem* current = baseItem;
+    StyleItem* prev = NULL;
+
+    while (current != NULL) {
+        if (current->screenQueryIndex == screenQueryIndex) {
+            return current;  // Found it!
+        }
+        else if (current->screenQueryIndex > screenQueryIndex) {
+            // Insert before current
+            StyleItem* newVariant = Array_PushEmpty(&ss->items);
+            newVariant->propertyFlags = 0;
+            newVariant->layoutFlags = 0;
+            newVariant->screenQueryIndex = screenQueryIndex;
+            newVariant->nextVariationIndex = -1;
+
+            if (prev == NULL) {
+                newVariant->nextVariationIndex = current->nextVariationIndex;
+            } else {
+                newVariant->nextVariationIndex = prev->nextVariationIndex;
+                prev->nextVariationIndex = ss->items.size - 1;
+            }
+            return newVariant;
+        }
+
+        prev = current;
+        if (current->nextVariationIndex == -1) break;
+        current = Array_Get(&ss->items, current->nextVariationIndex);
+    }
+
+    // Not found - append to end
+    StyleItem* newVariant = Array_PushEmpty(&ss->items);
+    newVariant->propertyFlags = 0;
+    newVariant->layoutFlags = 0;
+    newVariant->screenQueryIndex = screenQueryIndex;
+    newVariant->nextVariationIndex = -1;
+
+    if (prev == NULL) baseItem->nextVariationIndex = ss->items.size - 1;
+    else prev->nextVariationIndex = ss->items.size - 1;
+
+    return newVariant;
+}
+
 enum StylesheetParseCtx
 {
     STYLE_PARSE_CTX_SELECTOR,
@@ -1615,16 +1565,19 @@ enum StylesheetParseCtx
     STYLE_PARSE_CTX_SCROLL_TRACK_SELECTOR,
 };
 
-static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Array* variableUsages, Stylesheet* ss, ImageResourceLoader* imageResourceLoader)
+static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Stylesheet* ss, ImageResourceLoader* imageResourceLoader)
 {
     // Parse Fonts
     if (!Stylesheet_Parse_Fonts(ss, src, tokens, textRefs)) return 0;
+    printf("parsed @font\n");
 
     // Parse Variables
     if (!Stylesheet_Parse_Variables(src, tokens, ss, textRefs, variableMap)) return 0;
+    printf("parsed @var\n");
 
-    // Parse Default
-    if (!Stylesheet_Parse_Default(src, tokens, textRefs, variableMap, variableUsages, ss, imageResourceLoader)) return 0;
+    // Parse Screen Queries
+    if (!Stylesheet_Parse_Screen_Queries(src, tokens, ss, textRefs, variableMap)) return 0;
+    printf("parsed @screen\n");
 
     // ----------------------
     // --- Parser Context ---
@@ -1645,12 +1598,10 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
     u32 textRefIndex = 0;
     StyleTextRef* textRef;
 
-    // --------------------------
-    // --- Working Style Item ---
-    // --------------------------
-    StyleItem item;
-    item.propertyFlags = 0;
-    item.fontId = 0;
+    // -----------------------------
+    // --- Working Style Item(s) ---
+    // -----------------------------
+    StyleItem tempItem;
 
     // -------------
     // --- Parse ---
@@ -1664,12 +1615,6 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             // Grammar already checked
             textRefIndex += 1;
             ctx = STYLE_PARSE_CTX_FONT_SELECTOR;
-            i += 2;
-            continue;
-        }
-        else if (token == STYLE_DEFAULT_SELECTOR) {
-            // Grammar already checked
-            ctx = STYLE_PARSE_CTX_DEFAULT_SELECTOR;
             i += 2;
             continue;
         }
@@ -1712,10 +1657,8 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
         }
         else if (token == STYLE_SELECTOR_OPEN_BRACE) {
             if (AssertSelectionOpeningBraceGrammar(tokens, i)) {
-                StyleItem* defaultStyleItem = Array_Get(&ss->items, 0);
-                item.propertyFlags = 0;
-                item.layoutFlags = 0;
-                item.fontId = defaultStyleItem->fontId;
+                tempItem.propertyFlags = 0;
+                tempItem.layoutFlags = 0;
                 i += 1;
                 continue;
             }
@@ -1724,23 +1667,26 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
         else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
             if (!AssertSelectionClosingBraceGrammar(tokens, i)) return 0;
 
-            if (ctx == 0) {
-                for (int j=0; j<selectorCount; j++) {
-                    int itemIndex = selectorIndexes[j];
-                    StyleItem* currItem = Array_Get(&ss->items, itemIndex);
-
-                    // Update current item
-                    Stylesheet_OverwriteStyleItem(currItem, &item);
-                }
-                selectorCount = 0;
+            // Apply temp item to all listed items
+            for (int s=0; s<selectorCount; s++) {
+                StyleItem* baseItem = Array_Get(&ss->items, selectorIndexes[s]);
+                Stylesheet_OverwriteStyleItem(baseItem, &tempItem);
             }
 
+            selectorCount = 0;
             ctx = 0;
             i += 1;
             continue;
         }
-        else if (NU_Is_Tag_Selector_Token(token))
-        {
+        else if (token == STYLE_DEFAULT_SELECTOR) {
+            if (!AssertDefaultSelectorGrammar(tokens, i)) return 0;
+
+            selectorIndexes[selectorCount] = 0;
+            selectorCount++;
+            i += 1;
+            continue;
+        }
+        else if (NU_Is_Tag_Selector_Token(token)) {
             if (i < tokens->size - 1)
             {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
@@ -1780,6 +1726,8 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
                     // Create and add item
                     StyleItem newItem;
                     newItem.propertyFlags = 0;
+                    newItem.nextVariationIndex = -1;
+                    newItem.screenQueryIndex = -1;
                     Array_Push(&ss->items, &newItem);
                     selectorIndexes[selectorCount] = ss->items.size - 1;
                     Hashmap_Set(&ss->itemIndexMap , &key, &selectorIndexes[selectorCount]);
@@ -1789,8 +1737,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             }
             else return 0;
         }
-        else if (token == STYLE_CLASS_SELECTOR)
-        {
+        else if (token == STYLE_CLASS_SELECTOR) {
             if (i < tokens->size - 1)
             {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
@@ -1843,6 +1790,8 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
                     // Create and add item
                     StyleItem newItem;
                     newItem.propertyFlags = 0;
+                    newItem.nextVariationIndex = -1;
+                    newItem.screenQueryIndex = -1;
                     Array_Push(&ss->items, &newItem);
                     selectorIndexes[selectorCount] = ss->items.size - 1;
                     Hashmap_Set(&ss->itemIndexMap , &key, &selectorIndexes[selectorCount]);
@@ -1852,8 +1801,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             }
             else return 0;
         }
-        else if (token == STYLE_ID_SELECTOR)
-        {
+        else if (token == STYLE_ID_SELECTOR) {
             if (i < tokens->size - 1)
             {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
@@ -1906,6 +1854,8 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
                     // Create and add item
                     StyleItem newItem;
                     newItem.propertyFlags = 0;
+                    newItem.nextVariationIndex = -1;
+                    newItem.screenQueryIndex = -1;
                     Array_Push(&ss->items, &newItem);
                     selectorIndexes[selectorCount] = ss->items.size - 1;
                     Hashmap_Set(&ss->itemIndexMap , &key, &selectorIndexes[selectorCount]);
@@ -1915,8 +1865,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             }
             else return 0;
         }
-        else if (token == STYLE_SELECTOR_COMMA)
-        {
+        else if (token == STYLE_SELECTOR_COMMA) {
             if (AssertSelectorCommaGrammar(tokens, i)) {
                 if (selectorCount == 256) return 0;
                 i += 1;
@@ -1924,8 +1873,8 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             }
             else return 0;
         }
-        else if (NU_Is_Property_Identifier_Token(token))
-        {
+        else if (NU_Is_Property_Identifier_Token(token)) {
+
             // Property Identifier Assertion
             if (!AssertPropertyIdentifierGrammar(tokens, i)) return 0;
 
@@ -1935,7 +1884,7 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
 
             // Variable property
             enum NU_Style_Token secondNextToken = TokenArray_Get(tokens, i+2);
-            if (secondNextToken == STYLE_VARIABLE_PROPERTY_VALUE && (ctx == 0 || ctx == 3 || ctx == 4 || ctx == 5)) {
+            if (secondNextToken == STYLE_VARIABLE_PROPERTY_VALUE && ctx == 0) {
 
                 const char* variableName = text;
                 int* varIndex = LinearStringmap_Get(variableMap, variableName);
@@ -1948,23 +1897,43 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
                     return 0;
                 }
 
-                StylesheetVariable variable = *(StylesheetVariable*) Array_Get(&ss->variables, *varIndex);
-                Stylesheet_Parse_Variable_Property(ss, token, &item, variable, imageResourceLoader);
 
-                // Add variable usage for every item in the selector list
-                for (int k=0; k<selectorCount; k++) {
-                    StylesheetVariableUsage* usage = Array_PushEmpty(variableUsages);
-                    usage->variableIndex = *varIndex;
-                    usage->itemIndex = selectorIndexes[k];
-                    usage->propertyIdentifier = token;
+                int largestVariantIndex = 0;
+
+                // Apply base variable to tempItem
+                StylesheetVariable* variable = Array_Get(&ss->variables, *varIndex);
+                Stylesheet_Parse_Variable_Property(ss, token, &tempItem, *variable);
+
+                // Apply variable variations to variant items
+                while (variable->nextVariationIndex != -1) {
+
+                    // Get next variable variant
+                    variable = Array_Get(&ss->variables, variable->nextVariationIndex);
+
+                    // Apply directly to variant style items (variant variables don't have to go through temp intermediary)
+                    for (int s=0; s<selectorCount; s++) {
+                        StyleItem* baseItem = Array_Get(&ss->items, selectorIndexes[s]);
+                        StyleItem* variantItem = Stylesheet_FindOrCreateItemVariant(ss, baseItem, variable->screenQueryIndex);
+                        Stylesheet_Parse_Variable_Property(ss, token, variantItem, *variable);
+                    }
                 }
             }
             // Inline property
             else {
                 switch (ctx) {
-                    case STYLE_PARSE_CTX_SELECTOR:
-                        Stylesheet_Parse_Property(ss, token, &item, text, textRef->len, imageResourceLoader);
+                    case STYLE_PARSE_CTX_SELECTOR: {
+                        u64 propertyFlagsSet = Stylesheet_Parse_Property(ss, token, &tempItem, text, textRef->len, imageResourceLoader);
+
+                        // Clear these flags from all selected variations
+                        for (int s=0; s<selectorCount; s++) {
+                            StyleItem* item = Array_Get(&ss->items, selectorIndexes[s]);
+                            while (item->nextVariationIndex != -1) {
+                                item = Array_Get(&ss->items, item->nextVariationIndex);
+                                item->propertyFlags &= ~propertyFlagsSet;
+                            }
+                        }
                         break;
+                    }
                     case STYLE_PARSE_CTX_SCROLLBAR_SELECTOR:
                         Stylesheet_Parse_Scrollbar_Property(ss, token, text);
                         break;
@@ -1984,9 +1953,6 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
         }
         i += 1; continue;
     }
-
-    // Parse Screen Queries
-    if (!Stylesheet_Parse_Screen_Queries(src, tokens, ss, textRefs, variableMap, variableUsages, imageResourceLoader)) return 0;
 
     // No fonts loaded -> default load embedded font
     if (ss->fonts.size == 0) {
